@@ -67,7 +67,7 @@ func Create() *DB {
 	return &db
 }
 
-func (db *DB) Close() error {
+func (db *DB) CloseDB() error {
 	return db.client.Close()
 }
 

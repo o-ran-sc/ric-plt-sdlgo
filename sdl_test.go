@@ -40,7 +40,7 @@ func (m *mockDB) MGet(keys []string) ([]interface{}, error) {
 	return a.Get(0).([]interface{}), a.Error(1)
 }
 
-func (m *mockDB) Close() error {
+func (m *mockDB) CloseDB() error {
 	a := m.Called()
 	return a.Error(0)
 }

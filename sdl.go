@@ -27,7 +27,7 @@ import (
 type iDatabase interface {
 	MSet(pairs ...interface{}) error
 	MGet(keys []string) ([]interface{}, error)
-	Close() error
+	CloseDB() error
 	Del(keys []string) error
 	Keys(key string) ([]string, error)
 	SetIE(key string, oldData, newData interface{}) (bool, error)
@@ -62,7 +62,7 @@ func NewSdlInstance(NameSpace string, db iDatabase) *SdlInstance {
 }
 
 func (s *SdlInstance) Close() error {
-	return s.Close()
+	return s.CloseDB()
 }
 
 func (s *SdlInstance) setNamespaceToKeys(pairs ...interface{}) []interface{} {
