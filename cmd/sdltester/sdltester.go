@@ -22,7 +22,7 @@ import (
 	"os"
 	"time"
 
-	"gerrit.oran-osc.org/r/ric-plt/sdlgo"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
 )
 
 /*
