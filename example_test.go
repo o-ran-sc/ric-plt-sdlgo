@@ -40,7 +40,7 @@ func ExampleSdlInstance_Set() {
 }
 
 func ExampleSdlInstance_Get() {
-	retMap, err := sdl.Get([]string{"strigdata", "intdata"})
+	retMap, err := sdl.Get([]string{"stringdata", "intdata"})
 	if err != nil {
 		panic(err)
 	} else {
