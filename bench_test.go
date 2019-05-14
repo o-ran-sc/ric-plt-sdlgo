@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"gerrit.oran-osc.org/r/ric-plt/sdlgo"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
 )
 
 type singleBenchmark struct {

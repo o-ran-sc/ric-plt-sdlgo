@@ -1,4 +1,4 @@
-module gerrit.oran-osc.org/r/ric-plt/sdlgo
+module gerrit.o-ran-sc.org/r/ric-plt/sdlgo
 
 go 1.12
 
@@ -9,4 +9,4 @@ require (
 	github.com/stretchr/testify v1.3.0
 )
 
-replace gerrit.oran-osc.org/r/ric-plt/sdlgo/internal/sdlgoredis => ./internal/sdlgoredis
+replace gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis => ./internal/sdlgoredis
