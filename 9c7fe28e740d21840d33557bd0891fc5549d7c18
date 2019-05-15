@@ -16,6 +16,24 @@
       "revId": "9c7fe28e740d21840d33557bd0891fc5549d7c18",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "30f07ded_db957a06",
+        "filename": "sdl_test.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2019-05-15T06:57:08Z",
+      "side": 1,
+      "message": "Changed. Also checked other files and corrected incorrect addresses",
+      "parentUuid": "0b43741b_c56a9413",
+      "revId": "9c7fe28e740d21840d33557bd0891fc5549d7c18",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": false
     }
   ]
 }
