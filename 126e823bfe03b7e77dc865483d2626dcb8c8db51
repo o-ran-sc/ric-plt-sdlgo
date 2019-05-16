@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "012c4424_d6d9df01",
+        "filename": "sdl.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 1000005
+      },
+      "writtenOn": "2019-05-16T10:43:28Z",
+      "side": 1,
+      "message": "How about defining own error types (refer below link for the idea) ?\nhttps://golang.org/doc/effective_go.html#errors\n\nWith own error types we could clearly distinguish client originated issues (like giving illegal arguments) from the database backend errors.",
+      "revId": "126e823bfe03b7e77dc865483d2626dcb8c8db51",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "0550916b_c16016d9",
         "filename": "sdl.go",
         "patchSetId": 3
