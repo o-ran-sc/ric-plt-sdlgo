@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "dac5f964_7ba76fed",
+        "filename": "sdl.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2019-05-17T05:51:53Z",
+      "side": 1,
+      "message": "I think something like this should be done but would it be ok to have it in own review (could be quite a big work)?",
+      "parentUuid": "012c4424_d6d9df01",
+      "revId": "126e823bfe03b7e77dc865483d2626dcb8c8db51",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "0550916b_c16016d9",
         "filename": "sdl.go",
         "patchSetId": 3
