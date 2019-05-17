@@ -146,7 +146,12 @@ func (s *SdlInstance) setNamespaceToKeys(pairs ...interface{}) ([]interface{}, e
 					}
 				}
 			} else {
-				return []interface{}{}, errors.New("Key/value pairs doesn't match")
+				if reflectType.Elem().Kind() == reflect.Uint8 {
+					retVal = append(retVal, v)
+					shouldBeKey = true
+				} else {
+					return []interface{}{}, errors.New("Key/value pairs doesn't match")
+				}
 			}
 		case reflect.Array:
 			if shouldBeKey {
@@ -162,7 +167,12 @@ func (s *SdlInstance) setNamespaceToKeys(pairs ...interface{}) ([]interface{}, e
 					}
 				}
 			} else {
-				return []interface{}{}, errors.New("Key/value pairs doesn't match")
+				if reflectType.Elem().Kind() == reflect.Uint8 {
+					retVal = append(retVal, v)
+					shouldBeKey = true
+				} else {
+					return []interface{}{}, errors.New("Key/value pairs doesn't match")
+				}
 			}
 		default:
 			if shouldBeKey {
@@ -399,6 +409,9 @@ func (s *SdlInstance) RemoveAll() error {
 	return err
 }
 
+//RemoveAllAndPublish removes all keys under the namespace and if successfull, it
+//will publish an event to given channel. This operation is not atomic, thus it is
+//not guaranteed that all keys are remove
 func (s *SdlInstance) RemoveAllAndPublish(channelsAndEvents []string) error {
 	keys, err := s.Keys(s.nsPrefix + "*")
 	if err != nil {

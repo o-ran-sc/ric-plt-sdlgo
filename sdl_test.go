@@ -215,6 +215,28 @@ func TestWriteOneKey(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
+func TestWriteByteSliceAsValue(t *testing.T) {
+	m, i := setup()
+
+	msetExpected := []interface{}{"{namespace},key1", []byte{1, 2, 3, 4, 5}}
+
+	m.On("MSet", msetExpected).Return(nil)
+	err := i.Set("key1", []byte{1, 2, 3, 4, 5})
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestWriteByteArrayAsValue(t *testing.T) {
+	m, i := setup()
+
+	msetExpected := []interface{}{"{namespace},key1", [5]byte{1, 2, 3, 4, 5}}
+
+	m.On("MSet", msetExpected).Return(nil)
+	err := i.Set("key1", [5]byte{1, 2, 3, 4, 5})
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
 func TestWriteMixed(t *testing.T) {
 	m, i := setup()
 
