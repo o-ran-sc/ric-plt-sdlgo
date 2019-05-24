@@ -42,6 +42,11 @@ type iDatabase interface {
 	SetNXPub(channel, message, key string, data interface{}) (bool, error)
 	DelIE(key string, data interface{}) (bool, error)
 	DelIEPub(channel, message, key string, data interface{}) (bool, error)
+	SAdd(key string, data ...interface{}) error
+	SRem(key string, data ...interface{}) error
+	SMembers(key string) ([]string, error)
+	SIsMember(key string, data interface{}) (bool, error)
+	SCard(key string) (int64, error)
 }
 
 //SdlInstance provides an API to read, write and modify
@@ -428,5 +433,50 @@ func (s *SdlInstance) RemoveAllAndPublish(channelsAndEvents []string) error {
 		err = s.DelPub(channelsAndEventsPrepared[0], channelsAndEventsPrepared[1], keys)
 	}
 	return err
+}
 
+//AddMember adds a new member to a group.
+//
+//SDL groups are unordered collections of members where each member is
+//unique. It is possible to add the same member several times without the
+//need to check if it already exists.
+func (s *SdlInstance) AddMember(group string, member ...interface{}) error {
+	return s.SAdd(s.nsPrefix+group, member...)
+}
+
+//RemoveMember removes a member from a group.
+func (s *SdlInstance) RemoveMember(group string, member ...interface{}) error {
+	return s.SRem(s.nsPrefix+group, member...)
+}
+
+//RemoveGroup removes the whole group along with it's members.
+func (s *SdlInstance) RemoveGroup(group string) error {
+	return s.Del([]string{s.nsPrefix + group})
+}
+
+//GetMembers returns all the members from a group.
+func (s *SdlInstance) GetMembers(group string) ([]string, error) {
+	retVal, err := s.SMembers(s.nsPrefix + group)
+	if err != nil {
+		return []string{}, err
+	}
+	return retVal, err
+}
+
+//IsMember returns true if given member is found from a group.
+func (s *SdlInstance) IsMember(group string, member interface{}) (bool, error) {
+	retVal, err := s.SIsMember(s.nsPrefix+group, member)
+	if err != nil {
+		return false, err
+	}
+	return retVal, err
+}
+
+//GroupSize returns the number of members in a group.
+func (s *SdlInstance) GroupSize(group string) (int64, error) {
+	retVal, err := s.SCard(s.nsPrefix + group)
+	if err != nil {
+		return 0, err
+	}
+	return retVal, err
 }
