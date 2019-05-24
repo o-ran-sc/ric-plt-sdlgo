@@ -104,6 +104,30 @@ func (m *mockDB) DelIEPub(channel, message, key string, data interface{}) (bool,
 	return a.Bool(0), a.Error(1)
 }
 
+func (m *mockDB) SAdd(key string, data ...interface{}) error {
+	a := m.Called(key, data)
+	return a.Error(0)
+}
+
+func (m *mockDB) SRem(key string, data ...interface{}) error {
+	a := m.Called(key, data)
+	return a.Error(0)
+}
+func (m *mockDB) SMembers(key string) ([]string, error) {
+	a := m.Called(key)
+	return a.Get(0).([]string), a.Error(1)
+}
+
+func (m *mockDB) SIsMember(key string, data interface{}) (bool, error) {
+	a := m.Called(key, data)
+	return a.Bool(0), a.Error(1)
+}
+
+func (m *mockDB) SCard(key string) (int64, error) {
+	a := m.Called(key)
+	return a.Get(0).(int64), a.Error(1)
+}
+
 func setup() (*mockDB, *sdlgo.SdlInstance) {
 	m := new(mockDB)
 	i := sdlgo.NewSdlInstance("namespace", m)
@@ -1037,4 +1061,174 @@ func TestRemoveAllAndPublishIncorrectChannel(t *testing.T) {
 	assert.NotNil(t, err)
 	m.AssertExpectations(t)
 
+}
+
+func TestAddMemberSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := string("{namespace},group")
+	membersExpected := []interface{}{"member1", "member2"}
+
+	m.On("SAdd", groupExpected, membersExpected).Return(nil)
+
+	err := i.AddMember("group", "member1", "member2")
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestAddMemberFail(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := string("{namespace},group")
+	membersExpected := []interface{}{"member1", "member2"}
+
+	m.On("SAdd", groupExpected, membersExpected).Return(errors.New("Some error"))
+
+	err := i.AddMember("group", "member1", "member2")
+	assert.NotNil(t, err)
+	m.AssertExpectations(t)
+}
+func TestRemoveMemberSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := string("{namespace},group")
+	membersExpected := []interface{}{"member1", "member2"}
+
+	m.On("SRem", groupExpected, membersExpected).Return(nil)
+
+	err := i.RemoveMember("group", "member1", "member2")
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestRemoveMemberFail(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := string("{namespace},group")
+	membersExpected := []interface{}{"member1", "member2"}
+
+	m.On("SRem", groupExpected, membersExpected).Return(errors.New("Some error"))
+
+	err := i.RemoveMember("group", "member1", "member2")
+	assert.NotNil(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestRemoveGroupSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := []string{"{namespace},group"}
+
+	m.On("Del", groupExpected).Return(nil)
+
+	err := i.RemoveGroup("group")
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+func TestRemoveGroupFail(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := []string{"{namespace},group"}
+
+	m.On("Del", groupExpected).Return(errors.New("Some error"))
+
+	err := i.RemoveGroup("group")
+	assert.NotNil(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestGetMembersSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := "{namespace},group"
+	returnExpected := []string{"member1", "member2"}
+
+	m.On("SMembers", groupExpected).Return(returnExpected, nil)
+
+	result, err := i.GetMembers("group")
+	assert.Nil(t,err)
+	assert.Equal(t, result, returnExpected)
+	m.AssertExpectations(t)
+}
+func TestGetMembersFail(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := "{namespace},group"
+	returnExpected := []string{"member1", "member2"}
+
+	m.On("SMembers", groupExpected).Return(returnExpected, errors.New("Some error"))
+
+	result, err := i.GetMembers("group")
+	assert.NotNil(t,err)
+	assert.Equal(t, []string{}, result)
+	m.AssertExpectations(t)
+}
+
+func TestIsMemberSuccessfullyIsMember(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := "{namespace},group"
+	memberExpected := "member"
+
+	m.On("SIsMember", groupExpected, memberExpected).Return(true, nil)
+
+	result, err := i.IsMember("group", "member")
+	assert.Nil(t, err)
+	assert.True(t, result)
+	m.AssertExpectations(t)
+}
+func TestIsMemberSuccessfullyIsNotMember(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := "{namespace},group"
+	memberExpected := "member"
+
+	m.On("SIsMember", groupExpected, memberExpected).Return(false, nil)
+
+	result, err := i.IsMember("group", "member")
+	assert.Nil(t, err)
+	assert.False(t, result)
+	m.AssertExpectations(t)
+}
+func TestIsMemberFailure(t *testing.T) {
+	m, i := setup()
+
+	groupExpected := "{namespace},group"
+	memberExpected := "member"
+
+	m.On("SIsMember", groupExpected, memberExpected).Return(true, errors.New("Some error"))
+
+	result, err := i.IsMember("group", "member")
+	assert.NotNil(t, err)
+	assert.False(t, result)
+	m.AssertExpectations(t)
+}
+
+func TestGroupSizeSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	var expectedSize int64
+	expectedSize = 2
+	groupExpected := "{namespace},group"
+
+	m.On("SCard", groupExpected).Return(expectedSize, nil)
+
+	result, err := i.GroupSize("group")
+	assert.Nil(t, err)
+	assert.Equal(t, expectedSize, result)
+	m.AssertExpectations(t)
+}
+func TestGroupSizeFail(t *testing.T) {
+	m, i := setup()
+
+	var expectedSize int64
+	expectedSize = 2
+	groupExpected := "{namespace},group"
+
+	m.On("SCard", groupExpected).Return(expectedSize, errors.New("Some error"))
+
+	result, err := i.GroupSize("group")
+	assert.NotNil(t, err)
+	assert.Equal(t, int64(0), result)
+	m.AssertExpectations(t)
 }

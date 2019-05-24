@@ -39,12 +39,22 @@ type multiBenchmark struct {
 	valueSize int
 }
 
+type setBenchmark struct {
+	key         string
+	member      string
+	memberCount int
+}
+
 func (bm singleBenchmark) String(oper string) string {
 	return fmt.Sprintf("op = %s key=%d value=%d", oper, bm.keySize, bm.valueSize)
 }
 
 func (bm multiBenchmark) String(oper string) string {
 	return fmt.Sprintf("op = %s keycnt=%d key=%d value=%d", oper, bm.keyCount, bm.keySize, bm.valueSize)
+}
+
+func (bm setBenchmark) String(oper string) string {
+	return fmt.Sprintf("op = %s, memberCount=%d", oper, bm.memberCount)
 }
 func BenchmarkSet(b *testing.B) {
 	benchmarks := []singleBenchmark{
@@ -180,6 +190,35 @@ func BenchmarkMultiGet(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
 					_, err := sdl.Get(keyVals)
+					if err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkSetAddMember(b *testing.B) {
+	benchmarks := []setBenchmark{
+		{"a", "x", 1},
+		{"b", "x", 100},
+		{"c", "x", 10000},
+		{"d", "x", 1000000},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.String("AddMember"), func(b *testing.B) {
+			sdl := sdlgo.NewSdlInstance("namespace", sdlgo.NewDatabase())
+			members := make([]string, 0)
+			for i := 0; i < bm.memberCount; i++ {
+				member := bm.member + strconv.Itoa(i)
+				members = append(members, member)
+			}
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					err := sdl.AddMember(bm.key, members)
 					if err != nil {
 						b.Fatal(err)
 					}

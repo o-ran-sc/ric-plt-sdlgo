@@ -250,3 +250,28 @@ func (db *DB) DelIE(key string, data interface{}) (bool, error) {
 	}
 	return checkIntResultAndError(db.client.Do("DELIE", key, data).Result())
 }
+
+func (db *DB) SAdd(key string, data ...interface{}) error {
+	_, err := db.client.SAdd(key, data...).Result()
+	return err
+}
+
+func (db *DB) SRem(key string, data ...interface{}) error {
+	_, err := db.client.SRem(key, data...).Result()
+	return err
+}
+
+func (db *DB) SMembers(key string) ([]string, error) {
+	result, err := db.client.SMembers(key).Result()
+	return result, err
+}
+
+func (db *DB) SIsMember(key string, data interface{}) (bool, error) {
+	result, err := db.client.SIsMember(key, data).Result()
+	return result, err
+}
+
+func (db *DB) SCard(key string) (int64, error) {
+	result, err := db.client.SCard(key).Result()
+	return result, err
+}
