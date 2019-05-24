@@ -26,24 +26,6 @@ import (
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 )
 
-type iDatabase interface {
-	SubscribeChannelDB(cb sdlgoredis.ChannelNotificationCb, channelPrefix, eventSeparator string, channels ...string)
-	UnsubscribeChannelDB(channels ...string)
-	MSet(pairs ...interface{}) error
-	MSetPub(ns, message string, pairs ...interface{}) error
-	MGet(keys []string) ([]interface{}, error)
-	CloseDB() error
-	Del(keys []string) error
-	DelPub(channel, message string, keys []string) error
-	Keys(key string) ([]string, error)
-	SetIE(key string, oldData, newData interface{}) (bool, error)
-	SetIEPub(channel, message, key string, oldData, newData interface{}) (bool, error)
-	SetNX(key string, data interface{}) (bool, error)
-	SetNXPub(channel, message, key string, data interface{}) (bool, error)
-	DelIE(key string, data interface{}) (bool, error)
-	DelIEPub(channel, message, key string, data interface{}) (bool, error)
-}
-
 //SdlInstance provides an API to read, write and modify
 //key-value pairs in a given namespace.
 type SdlInstance struct {
@@ -428,5 +410,73 @@ func (s *SdlInstance) RemoveAllAndPublish(channelsAndEvents []string) error {
 		err = s.DelPub(channelsAndEventsPrepared[0], channelsAndEventsPrepared[1], keys)
 	}
 	return err
+}
 
+//AddMember adds a new members to a group.
+//
+//SDL groups are unordered collections of members where each member is
+//unique. It is possible to add the same member several times without the
+//need to check if it already exists.
+func (s *SdlInstance) AddMember(group string, member ...interface{}) error {
+	return s.SAdd(s.nsPrefix+group, member...)
+}
+
+//RemoveMember removes members from a group.
+func (s *SdlInstance) RemoveMember(group string, member ...interface{}) error {
+	return s.SRem(s.nsPrefix+group, member...)
+}
+
+//RemoveGroup removes the whole group along with it's members.
+func (s *SdlInstance) RemoveGroup(group string) error {
+	return s.Del([]string{s.nsPrefix + group})
+}
+
+//GetMembers returns all the members from a group.
+func (s *SdlInstance) GetMembers(group string) ([]string, error) {
+	retVal, err := s.SMembers(s.nsPrefix + group)
+	if err != nil {
+		return []string{}, err
+	}
+	return retVal, err
+}
+
+//IsMember returns true if given member is found from a group.
+func (s *SdlInstance) IsMember(group string, member interface{}) (bool, error) {
+	retVal, err := s.SIsMember(s.nsPrefix+group, member)
+	if err != nil {
+		return false, err
+	}
+	return retVal, err
+}
+
+//GroupSize returns the number of members in a group.
+func (s *SdlInstance) GroupSize(group string) (int64, error) {
+	retVal, err := s.SCard(s.nsPrefix + group)
+	if err != nil {
+		return 0, err
+	}
+	return retVal, err
+}
+
+type iDatabase interface {
+	SubscribeChannelDB(cb sdlgoredis.ChannelNotificationCb, channelPrefix, eventSeparator string, channels ...string)
+	UnsubscribeChannelDB(channels ...string)
+	MSet(pairs ...interface{}) error
+	MSetPub(ns, message string, pairs ...interface{}) error
+	MGet(keys []string) ([]interface{}, error)
+	CloseDB() error
+	Del(keys []string) error
+	DelPub(channel, message string, keys []string) error
+	Keys(key string) ([]string, error)
+	SetIE(key string, oldData, newData interface{}) (bool, error)
+	SetIEPub(channel, message, key string, oldData, newData interface{}) (bool, error)
+	SetNX(key string, data interface{}) (bool, error)
+	SetNXPub(channel, message, key string, data interface{}) (bool, error)
+	DelIE(key string, data interface{}) (bool, error)
+	DelIEPub(channel, message, key string, data interface{}) (bool, error)
+	SAdd(key string, data ...interface{}) error
+	SRem(key string, data ...interface{}) error
+	SMembers(key string) ([]string, error)
+	SIsMember(key string, data interface{}) (bool, error)
+	SCard(key string) (int64, error)
 }
