@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "8d792d9f_825c63e6",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 1000005
+      },
+      "writtenOn": "2019-05-27T11:20:27Z",
+      "side": 1,
+      "message": "Minor issue, and not related to this change only. Would this file be more readable if this private interface is located below the exported structs and functions ? Now this the first thing that reader sees after opening the sdl.go file.",
+      "revId": "b7372485cbe44dedeadb84ec9cc8b5f25307ff04",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "f38ea2e9_cb0851a8",
         "filename": "sdl.go",
         "patchSetId": 1
@@ -34,6 +51,23 @@
       "revId": "b7372485cbe44dedeadb84ec9cc8b5f25307ff04",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "cf52fe24_ff8647b3",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 440,
+      "author": {
+        "id": 1000005
+      },
+      "writtenOn": "2019-05-27T11:20:27Z",
+      "side": 1,
+      "message": "For terminology, which one is better term in this context \"group\" or \"set\" ?",
+      "revId": "b7372485cbe44dedeadb84ec9cc8b5f25307ff04",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
     },
     {
       "key": {
