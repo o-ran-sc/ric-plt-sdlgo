@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "f38ea2e9_cb0851a8",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 438,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2019-05-27T10:20:33Z",
+      "side": 1,
+      "message": "Not only one member but you can add many new members with the same AddMember call?",
+      "revId": "b7372485cbe44dedeadb84ec9cc8b5f25307ff04",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "6ab9b871_0e9431d5",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 447,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2019-05-27T10:20:33Z",
+      "side": 1,
+      "message": "Many members can be removed with the same RemoveMember call?",
+      "revId": "b7372485cbe44dedeadb84ec9cc8b5f25307ff04",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    }
+  ]
+}
