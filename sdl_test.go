@@ -20,6 +20,7 @@ package sdlgo_test
 import (
 	"errors"
 	"testing"
+	"reflect"
 
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
@@ -44,8 +45,8 @@ func (m *mockDB) MSet(pairs ...interface{}) error {
 	return a.Error(0)
 }
 
-func (m *mockDB) MSetPub(ns, message string, pairs ...interface{}) error {
-	a := m.Called(ns, message, pairs)
+func (m *mockDB) MSetMPub(channelsAndEvents []string, pairs ...interface{}) error {
+	a := m.Called(channelsAndEvents, pairs)
 	return a.Error(0)
 }
 
@@ -64,8 +65,8 @@ func (m *mockDB) Del(keys []string) error {
 	return a.Error(0)
 }
 
-func (m *mockDB) DelPub(channel, message string, keys []string) error {
-	a := m.Called(channel, message, keys)
+func (m *mockDB) DelMPub(channelsAndEvents []string, keys []string) error {
+	a := m.Called(channelsAndEvents, keys)
 	return a.Error(0)
 }
 
@@ -132,6 +133,25 @@ func setup() (*mockDB, *sdlgo.SdlInstance) {
 	m := new(mockDB)
 	i := sdlgo.NewSdlInstance("namespace", m)
 	return m, i
+}
+
+func verifySliceInOrder(a, b []string) bool {
+		for i, v := range a {
+			found := false
+			if i%2 == 0 {
+				for j, x := range b {
+					if j%2 == 0 && x == v && a[i+1] == b[j+1] {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return false
+				}
+			}
+		}
+		return true
+
 }
 
 func TestSubscribeChannel(t *testing.T) {
@@ -272,6 +292,39 @@ func TestWriteByteArrayAsValue(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
+func TestWriteMapAsInput(t *testing.T){
+	m, i := setup()
+
+	setExpected := []interface{}{"{namespace},key1", "string123",
+								"{namespace},key22", 12,
+								"{namespace},key333", []byte{1,2,3,4,5}}
+	inputMap := map[string]interface{}{
+		"key1": "string123",
+		"key22": 12,
+		"key333": []byte{1,2,3,4,5},
+	}
+
+	m.On("MSet", mock.MatchedBy(func(input []interface{}) bool {
+		for _, v := range input {
+			found := false
+			for _, x := range setExpected {
+				found = reflect.DeepEqual(x, v)
+				if found == true {
+					break
+				}
+			}
+			if found == false {
+				return false
+			}
+		}
+		return true
+		})).Return(nil)
+
+	err := i.Set(inputMap)
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
 func TestWriteMixed(t *testing.T) {
 	m, i := setup()
 
@@ -372,24 +425,41 @@ func TestWriteEmptyList(t *testing.T) {
 func TestWriteAndPublishOneKeyOneChannel(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedMessage := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKeyVal := []interface{}{"{namespace},key1", "data1"}
 
-	m.On("MSetPub", expectedChannel, expectedMessage, expectedKeyVal).Return(nil)
+	m.On("MSetMPub", expectedChannelAndEvent, expectedKeyVal).Return(nil)
 	m.AssertNotCalled(t, "MSet", expectedKeyVal)
 	err := i.SetAndPublish([]string{"channel", "event"}, "key1", "data1")
 	assert.Nil(t, err)
 	m.AssertExpectations(t)
 }
+
+func TestWriteAndPublishSeveralChannelsAndEvents(t *testing.T) {
+	m , i := setup()
+
+	expectedChannelsAndEvents := []string{"{namespace},channel1", "event1___event2", 
+										  "{namespace},channel2", "event3___event4"}
+	expectedKeyVal := []interface{}{"{namespace},key", "data"}
+
+	verifyChannelAndEvent := func(input []string) bool {
+		return verifySliceInOrder(input, expectedChannelsAndEvents)
+	}
+	m.On("MSetMPub", mock.MatchedBy(verifyChannelAndEvent), expectedKeyVal).Return(nil)
+	m.AssertNotCalled(t, "MSet", expectedKeyVal)
+	err := i.SetAndPublish([]string{"channel1", "event1", "channel2", "event3", "channel1", "event2", "channel2", "event4"},
+									"key", "data")
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
 func TestWriteAndPublishOneKeyOneChannelTwoEvents(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedMessage := "event1___event2"
+	expectedChannelAndEvents := []string{"{namespace},channel", "event1___event2"}
 	expectedKeyVal := []interface{}{"{namespace},key1", "data1"}
 
-	m.On("MSetPub", expectedChannel, expectedMessage, expectedKeyVal).Return(nil)
+	m.On("MSetMPub", expectedChannelAndEvents, expectedKeyVal).Return(nil)
 	m.AssertNotCalled(t, "MSet", expectedKeyVal)
 	err := i.SetAndPublish([]string{"channel", "event1", "channel", "event2"}, "key1", "data1")
 	assert.Nil(t, err)
@@ -399,10 +469,9 @@ func TestWriteAndPublishOneKeyOneChannelTwoEvents(t *testing.T) {
 func TestWriteAndPublishIncorrectChannelAndEvent(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedMessage := "event1___event2"
+	expectedChannelAndEvent := []string{}
 	expectedKeyVal := []interface{}{"{namespace},key1", "data1"}
-	m.AssertNotCalled(t, "MSetPub", expectedChannel, expectedMessage, expectedKeyVal)
+	m.AssertNotCalled(t, "MSetMPub", expectedChannelAndEvent, expectedKeyVal)
 	m.AssertNotCalled(t, "MSet", expectedKeyVal)
 	err := i.SetAndPublish([]string{"channel", "event1", "channel"}, "key1", "data1")
 	assert.NotNil(t, err)
@@ -412,10 +481,9 @@ func TestWriteAndPublishIncorrectChannelAndEvent(t *testing.T) {
 func TestWriteAndPublishNotAllowedCharactersInEvents(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedMessage := "event1___event2"
+	expectedChannelAndEvent := []string{}
 	expectedKeyVal := []interface{}{"{namespace},key1", "data1"}
-	m.AssertNotCalled(t, "MSetPub", expectedChannel, expectedMessage, expectedKeyVal)
+	m.AssertNotCalled(t, "MSetMPub", expectedChannelAndEvent, expectedKeyVal)
 	m.AssertNotCalled(t, "MSet", expectedKeyVal)
 	err := i.SetAndPublish([]string{"channel", "event1___event2"}, "key1", "data1")
 	assert.NotNil(t, err)
@@ -425,11 +493,10 @@ func TestWriteAndPublishNotAllowedCharactersInEvents(t *testing.T) {
 func TestWriteAndPublishNoData(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedMessage := "event"
+	expectedChannelAndEvent := []string{}
 	expectedKeyVal := []interface{}{"key"}
 
-	m.AssertNotCalled(t, "MSetPub", expectedChannel, expectedMessage, expectedKeyVal)
+	m.AssertNotCalled(t, "MSetMPub", expectedChannelAndEvent, expectedKeyVal)
 	m.AssertNotCalled(t, "MSet", expectedKeyVal)
 	err := i.SetAndPublish([]string{"channel", "event"}, []interface{}{"key"})
 	assert.NotNil(t, err)
@@ -442,7 +509,7 @@ func TestWriteAndPublishNoChannelEvent(t *testing.T) {
 	expectedKeyVal := []interface{}{"{namespace},key1", "data1"}
 
 	m.On("MSet", expectedKeyVal).Return(nil)
-	m.AssertNotCalled(t, "MSetPub", "", "", expectedKeyVal)
+	m.AssertNotCalled(t, "MSetMPub", "", "", expectedKeyVal)
 	err := i.SetAndPublish([]string{}, "key1", "data1")
 	assert.Nil(t, err)
 	m.AssertExpectations(t)
@@ -452,23 +519,39 @@ func TestWriteAndPublishNoChannelEvent(t *testing.T) {
 func TestRemoveAndPublishSuccessfully(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKeys := []string{"{namespace},key1", "{namespace},key2"}
 
-	m.On("DelPub", expectedChannel, expectedEvent, expectedKeys).Return(nil)
+	m.On("DelMPub", expectedChannelAndEvent, expectedKeys).Return(nil)
 	err := i.RemoveAndPublish([]string{"channel", "event"}, []string{"key1", "key2"})
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestRemoveAndPublishSeveralChannelsAndEventsSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	expectedChannelAndEvent := []string{"{namespace},channel1", "event1___event2",
+										"{namespace},channel2", "event3___event4"}
+	expectedKeys := []string{"{namespace},key1", "{namespace},key2"}
+
+	verifyChannelAndEvent := func(input []string) bool {
+		return verifySliceInOrder(input, expectedChannelAndEvent)
+	}
+	m.On("DelMPub", mock.MatchedBy(verifyChannelAndEvent), expectedKeys).Return(nil)
+	err := i.RemoveAndPublish([]string{"channel1", "event1", "channel2", "event3",
+									"channel1", "event2", "channel2", "event4"},
+									[]string{"key1", "key2"})
 	assert.Nil(t, err)
 	m.AssertExpectations(t)
 }
 func TestRemoveAndPublishFail(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKeys := []string{"{namespace},key1", "{namespace},key2"}
 
-	m.On("DelPub", expectedChannel, expectedEvent, expectedKeys).Return(errors.New("Some error"))
+	m.On("DelMPub", expectedChannelAndEvent, expectedKeys).Return(errors.New("Some error"))
 	err := i.RemoveAndPublish([]string{"channel", "event"}, []string{"key1", "key2"})
 	assert.NotNil(t, err)
 	m.AssertExpectations(t)
@@ -488,11 +571,10 @@ func TestRemoveAndPublishNoChannels(t *testing.T) {
 func TestRemoveAndPublishIncorrectChannel(t *testing.T) {
 	m, i := setup()
 
-	notExpectedChannel := "{namespace},channel"
-	notExpectedEvent := "event"
+	notExpectedChannelAndEvent := []string{}
 	notExpectedKeys := []string{"{namespace},key"}
 
-	m.AssertNotCalled(t, "DelPub", notExpectedChannel, notExpectedEvent, notExpectedKeys)
+	m.AssertNotCalled(t, "DelMPub", notExpectedChannelAndEvent, notExpectedKeys)
 	m.AssertNotCalled(t, "Del", notExpectedKeys)
 	err := i.RemoveAndPublish([]string{"channel", "event", "channel2"}, []string{})
 	assert.Nil(t, err)
@@ -502,11 +584,10 @@ func TestRemoveAndPublishIncorrectChannel(t *testing.T) {
 func TestRemoveAndPublishNoKeys(t *testing.T) {
 	m, i := setup()
 
-	notExpectedChannel := "{namespace},channel"
-	notExpectedEvent := "event"
+	notExpectedChannelAndEvent := []string{}
 	notExpectedKeys := []string{"{namespace},key"}
 
-	m.AssertNotCalled(t, "DelPub", notExpectedChannel, notExpectedEvent, notExpectedKeys)
+	m.AssertNotCalled(t, "DelMPub", notExpectedChannelAndEvent, notExpectedKeys)
 	m.AssertNotCalled(t, "Del", notExpectedKeys)
 	err := i.RemoveAndPublish([]string{"channel", "event"}, []string{})
 	assert.Nil(t, err)
@@ -980,10 +1061,9 @@ func TestRemoveAllAndPublishSuccessfully(t *testing.T) {
 	mKeysExpected := string("{namespace},*")
 	mKeysReturn := []string{"{namespace},key1", "{namespace},key2"}
 	mDelExpected := mKeysReturn
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	m.On("Keys", mKeysExpected).Return(mKeysReturn, nil)
-	m.On("DelPub", expectedChannel, expectedEvent, mDelExpected).Return(nil)
+	m.On("DelMPub", expectedChannelAndEvent, mDelExpected).Return(nil)
 	err := i.RemoveAllAndPublish([]string{"channel", "event"})
 	assert.Nil(t, err)
 	m.AssertExpectations(t)
@@ -995,10 +1075,9 @@ func TestRemoveAllAndPublishKeysReturnError(t *testing.T) {
 	mKeysExpected := string("{namespace},*")
 	mKeysReturn := []string{"{namespace},key1", "{namespace},key2"}
 	mDelExpected := mKeysReturn
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event" }
 	m.On("Keys", mKeysExpected).Return(mKeysReturn, errors.New("Some error"))
-	m.AssertNotCalled(t, "DelPub", expectedChannel, expectedEvent, mDelExpected)
+	m.AssertNotCalled(t, "DelMPub", expectedChannelAndEvent, mDelExpected)
 	err := i.RemoveAllAndPublish([]string{"channel", "event"})
 	assert.NotNil(t, err)
 	m.AssertExpectations(t)
@@ -1010,10 +1089,9 @@ func TestRemoveAllAndPublishKeysDelReturnsError(t *testing.T) {
 	mKeysExpected := string("{namespace},*")
 	mKeysReturn := []string{"{namespace},key1", "{namespace},key2"}
 	mDelExpected := mKeysReturn
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	m.On("Keys", mKeysExpected).Return(mKeysReturn, nil)
-	m.On("DelPub", expectedChannel, expectedEvent, mDelExpected).Return(errors.New("Some error"))
+	m.On("DelMPub", expectedChannelAndEvent, mDelExpected).Return(errors.New("Some error"))
 	err := i.RemoveAllAndPublish([]string{"channel", "event"})
 	assert.NotNil(t, err)
 	m.AssertExpectations(t)
@@ -1025,10 +1103,9 @@ func TestRemoveAllAndPublishKeysEventsWithIllegalCharacters(t *testing.T) {
 	mKeysExpected := string("{namespace},*")
 	mKeysReturn := []string{"{namespace},key1", "{namespace},key2"}
 	mDelExpected := mKeysReturn
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	m.On("Keys", mKeysExpected).Return(mKeysReturn, nil)
-	m.AssertNotCalled(t, "DelPub", expectedChannel, expectedEvent, mDelExpected)
+	m.AssertNotCalled(t, "DelMPub", expectedChannelAndEvent, mDelExpected)
 	err := i.RemoveAllAndPublish([]string{"channel", "event___anotherEvent"})
 	assert.NotNil(t, err)
 	m.AssertExpectations(t)
@@ -1043,7 +1120,7 @@ func TestRemoveAllAndPublishNoChannels(t *testing.T) {
 	mDelExpected := mKeysReturn
 	m.On("Keys", mKeysExpected).Return(mKeysReturn, nil)
 	m.On("Del", mDelExpected).Return(nil)
-	m.AssertNotCalled(t, "DelPub", "", "", mDelExpected)
+	m.AssertNotCalled(t, "DelMPub", "", "", mDelExpected)
 	err := i.RemoveAllAndPublish([]string{})
 	assert.Nil(t, err)
 	m.AssertExpectations(t)
@@ -1056,7 +1133,7 @@ func TestRemoveAllAndPublishIncorrectChannel(t *testing.T) {
 	mKeysReturn := []string{"{namespace},key1", "{namespace},key2"}
 	mDelExpected := mKeysReturn
 	m.On("Keys", mKeysExpected).Return(mKeysReturn, nil)
-	m.AssertNotCalled(t, "DelPub", "", "", mDelExpected)
+	m.AssertNotCalled(t, "DelMPub", "", "", mDelExpected)
 	err := i.RemoveAllAndPublish([]string{"channel", "event", "channel2"})
 	assert.NotNil(t, err)
 	m.AssertExpectations(t)
