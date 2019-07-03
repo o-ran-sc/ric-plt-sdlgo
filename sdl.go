@@ -114,6 +114,12 @@ func (s *SdlInstance) setNamespaceToKeys(pairs ...interface{}) ([]interface{}, e
 	for _, v := range pairs {
 		reflectType := reflect.TypeOf(v)
 		switch reflectType.Kind() {
+		case reflect.Map:
+			x := reflect.ValueOf(v).MapRange()
+			for x.Next() {
+				retVal = append(retVal, s.nsPrefix+x.Key().Interface().(string))
+				retVal = append(retVal, x.Value().Interface())
+			}
 		case reflect.Slice:
 			if shouldBeKey {
 				x := reflect.ValueOf(v)
@@ -193,21 +199,20 @@ func (s *SdlInstance) prepareChannelsAndEvents(channelsAndEvents []string) []str
 	return retVal
 }
 
-//SetAndPublish function writes data to shared data layer storage and send an event to
+//SetAndPublish function writes data to shared data layer storage and sends an event to
 //a channel. Writing is done atomically, i.e. all succeeds or fails.
 //Data to be written is given as key-value pairs. Several key-value
 //pairs can be written with one call.
 //The key is expected to be string whereas value can be anything, string,
 //number, slice array or map
 //
+//If data was set successfully, an event is sent to a channel.
 //Channels and events are given as pairs is channelsAndEvents parameter.
-//Although it is possible to give sevral channel-event pairs, current implementation
-//supports sending events to one channel only due to missing support in DB backend.
+//It is possible to send several events to several channels by giving several
+//channel-event pairs.
+//  E.g. []{"channel1", "event1", "channel2", "event2", "channel1", "event3"}
+//will send event1 and event3 to channel1 and event2 to channel2.
 func (s *SdlInstance) SetAndPublish(channelsAndEvents []string, pairs ...interface{}) error {
-	if len(pairs)%2 != 0 {
-		return errors.New("Invalid pairs parameter")
-	}
-
 	keyAndData, err := s.setNamespaceToKeys(pairs...)
 	if err != nil {
 		return err
@@ -219,7 +224,7 @@ func (s *SdlInstance) SetAndPublish(channelsAndEvents []string, pairs ...interfa
 		return err
 	}
 	channelsAndEventsPrepared := s.prepareChannelsAndEvents(channelsAndEvents)
-	return s.MSetPub(channelsAndEventsPrepared[0], channelsAndEventsPrepared[1], keyAndData...)
+	return s.MSetMPub(channelsAndEventsPrepared, keyAndData...)
 }
 
 //Set function writes data to shared data layer storage. Writing is done
@@ -306,7 +311,10 @@ func (s *SdlInstance) SetIfNotExists(key string, data interface{}) (bool, error)
 }
 
 //RemoveAndPublish removes data from SDL. Operation is done atomically, i.e. either all succeeds or fails.
-//An event is published into a given channel if remove operation is successfull.
+//Trying to remove a nonexisting kwy is not considered as an error.
+//An event is published into a given channel if remove operation is successfull and
+//at least one key is removed (if several keys given). If the given key(s) doesn't exist
+//when trying to remove, no event is published.
 func (s *SdlInstance) RemoveAndPublish(channelsAndEvents []string, keys []string) error {
 	if len(keys) == 0 {
 		return nil
@@ -323,7 +331,7 @@ func (s *SdlInstance) RemoveAndPublish(channelsAndEvents []string, keys []string
 		return err
 	}
 	channelsAndEventsPrepared := s.prepareChannelsAndEvents(channelsAndEvents)
-	return s.DelPub(channelsAndEventsPrepared[0], channelsAndEventsPrepared[1], keysWithNs)
+	return s.DelMPub(channelsAndEventsPrepared, keysWithNs)
 }
 
 //Remove data from SDL. Operation is done atomically, i.e. either all succeeds or fails.
@@ -407,7 +415,7 @@ func (s *SdlInstance) RemoveAllAndPublish(channelsAndEvents []string) error {
 			return err
 		}
 		channelsAndEventsPrepared := s.prepareChannelsAndEvents(channelsAndEvents)
-		err = s.DelPub(channelsAndEventsPrepared[0], channelsAndEventsPrepared[1], keys)
+		err = s.DelMPub(channelsAndEventsPrepared, keys)
 	}
 	return err
 }
@@ -462,11 +470,11 @@ type iDatabase interface {
 	SubscribeChannelDB(cb sdlgoredis.ChannelNotificationCb, channelPrefix, eventSeparator string, channels ...string)
 	UnsubscribeChannelDB(channels ...string)
 	MSet(pairs ...interface{}) error
-	MSetPub(ns, message string, pairs ...interface{}) error
+	MSetMPub(channelsAndEvents []string, pairs ...interface{}) error
 	MGet(keys []string) ([]interface{}, error)
 	CloseDB() error
 	Del(keys []string) error
-	DelPub(channel, message string, keys []string) error
+	DelMPub(channelsAndEvents []string, keys []string) error
 	Keys(key string) ([]string, error)
 	SetIE(key string, oldData, newData interface{}) (bool, error)
 	SetIEPub(channel, message, key string, oldData, newData interface{}) (bool, error)
