@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "f136251a_6931ecbb",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2019-07-03T09:33:25Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "e5581f39_8adb83d3",
+      "revId": "34be55ce9f69151aff9bd8853abedffb0178ce5f",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "95e9a5f4_6dbab2fa",
         "filename": "doc.go",
         "patchSetId": 1
