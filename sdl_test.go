@@ -19,8 +19,9 @@ package sdlgo_test
 
 import (
 	"errors"
-	"testing"
 	"reflect"
+	"testing"
+	"time"
 
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
@@ -85,8 +86,8 @@ func (m *mockDB) SetIEPub(channel, message, key string, oldData, newData interfa
 	return a.Bool(0), a.Error(1)
 }
 
-func (m *mockDB) SetNX(key string, data interface{}) (bool, error) {
-	a := m.Called(key, data)
+func (m *mockDB) SetNX(key string, data interface{}, expiration time.Duration) (bool, error) {
+	a := m.Called(key, data, expiration)
 	return a.Bool(0), a.Error(1)
 }
 
@@ -129,6 +130,16 @@ func (m *mockDB) SCard(key string) (int64, error) {
 	return a.Get(0).(int64), a.Error(1)
 }
 
+func (m *mockDB) PTTL(key string) (time.Duration, error) {
+	a := m.Called(key)
+	return a.Get(0).(time.Duration), a.Error(1)
+}
+
+func (m *mockDB) PExpireIE(key string, data interface{}, expiration time.Duration) error {
+	a := m.Called(key, data, expiration)
+	return a.Error(0)
+}
+
 func setup() (*mockDB, *sdlgo.SdlInstance) {
 	m := new(mockDB)
 	i := sdlgo.NewSdlInstance("namespace", m)
@@ -136,21 +147,21 @@ func setup() (*mockDB, *sdlgo.SdlInstance) {
 }
 
 func verifySliceInOrder(a, b []string) bool {
-		for i, v := range a {
-			found := false
-			if i%2 == 0 {
-				for j, x := range b {
-					if j%2 == 0 && x == v && a[i+1] == b[j+1] {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return false
+	for i, v := range a {
+		found := false
+		if i%2 == 0 {
+			for j, x := range b {
+				if j%2 == 0 && x == v && a[i+1] == b[j+1] {
+					found = true
+					break
 				}
 			}
+			if !found {
+				return false
+			}
 		}
-		return true
+	}
+	return true
 
 }
 
@@ -292,16 +303,16 @@ func TestWriteByteArrayAsValue(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
-func TestWriteMapAsInput(t *testing.T){
+func TestWriteMapAsInput(t *testing.T) {
 	m, i := setup()
 
 	setExpected := []interface{}{"{namespace},key1", "string123",
-								"{namespace},key22", 12,
-								"{namespace},key333", []byte{1,2,3,4,5}}
+		"{namespace},key22", 12,
+		"{namespace},key333", []byte{1, 2, 3, 4, 5}}
 	inputMap := map[string]interface{}{
-		"key1": "string123",
-		"key22": 12,
-		"key333": []byte{1,2,3,4,5},
+		"key1":   "string123",
+		"key22":  12,
+		"key333": []byte{1, 2, 3, 4, 5},
 	}
 
 	m.On("MSet", mock.MatchedBy(func(input []interface{}) bool {
@@ -318,7 +329,7 @@ func TestWriteMapAsInput(t *testing.T){
 			}
 		}
 		return true
-		})).Return(nil)
+	})).Return(nil)
 
 	err := i.Set(inputMap)
 	assert.Nil(t, err)
@@ -436,10 +447,10 @@ func TestWriteAndPublishOneKeyOneChannel(t *testing.T) {
 }
 
 func TestWriteAndPublishSeveralChannelsAndEvents(t *testing.T) {
-	m , i := setup()
+	m, i := setup()
 
-	expectedChannelsAndEvents := []string{"{namespace},channel1", "event1___event2", 
-										  "{namespace},channel2", "event3___event4"}
+	expectedChannelsAndEvents := []string{"{namespace},channel1", "event1___event2",
+		"{namespace},channel2", "event3___event4"}
 	expectedKeyVal := []interface{}{"{namespace},key", "data"}
 
 	verifyChannelAndEvent := func(input []string) bool {
@@ -448,7 +459,7 @@ func TestWriteAndPublishSeveralChannelsAndEvents(t *testing.T) {
 	m.On("MSetMPub", mock.MatchedBy(verifyChannelAndEvent), expectedKeyVal).Return(nil)
 	m.AssertNotCalled(t, "MSet", expectedKeyVal)
 	err := i.SetAndPublish([]string{"channel1", "event1", "channel2", "event3", "channel1", "event2", "channel2", "event4"},
-									"key", "data")
+		"key", "data")
 	assert.Nil(t, err)
 	m.AssertExpectations(t)
 }
@@ -532,7 +543,7 @@ func TestRemoveAndPublishSeveralChannelsAndEventsSuccessfully(t *testing.T) {
 	m, i := setup()
 
 	expectedChannelAndEvent := []string{"{namespace},channel1", "event1___event2",
-										"{namespace},channel2", "event3___event4"}
+		"{namespace},channel2", "event3___event4"}
 	expectedKeys := []string{"{namespace},key1", "{namespace},key2"}
 
 	verifyChannelAndEvent := func(input []string) bool {
@@ -540,8 +551,8 @@ func TestRemoveAndPublishSeveralChannelsAndEventsSuccessfully(t *testing.T) {
 	}
 	m.On("DelMPub", mock.MatchedBy(verifyChannelAndEvent), expectedKeys).Return(nil)
 	err := i.RemoveAndPublish([]string{"channel1", "event1", "channel2", "event3",
-									"channel1", "event2", "channel2", "event4"},
-									[]string{"key1", "key2"})
+		"channel1", "event2", "channel2", "event4"},
+		[]string{"key1", "key2"})
 	assert.Nil(t, err)
 	m.AssertExpectations(t)
 }
@@ -856,7 +867,7 @@ func TestSetIfNotExistsAndPublishNoChannels(t *testing.T) {
 	expectedKey := "{namespace},key"
 	expectedData := interface{}("data")
 
-	m.On("SetNX", expectedKey, expectedData).Return(true, nil)
+	m.On("SetNX", expectedKey, expectedData, time.Duration(0)).Return(true, nil)
 	status, err := i.SetIfNotExistsAndPublish([]string{}, "key", "data")
 	assert.Nil(t, err)
 	assert.True(t, status)
@@ -887,7 +898,7 @@ func TestSetIfNotExistsAndPublishIncorrectChannels(t *testing.T) {
 	expectedData := interface{}("data")
 
 	m.AssertNotCalled(t, "SetNXPub", expectedChannel, expectedEvent, expectedKey, expectedData)
-	m.AssertNotCalled(t, "SetNX", expectedKey, expectedData)
+	m.AssertNotCalled(t, "SetNX", expectedKey, expectedData, 0)
 	status, err := i.SetIfNotExistsAndPublish([]string{"channel", "event", "channel2"}, "key", "data")
 	assert.NotNil(t, err)
 	assert.False(t, status)
@@ -914,7 +925,7 @@ func TestSetIfNotExistsSuccessfullyOkStatus(t *testing.T) {
 
 	mSetNXExpectedKey := string("{namespace},key1")
 	mSetNXExpectedData := interface{}("data")
-	m.On("SetNX", mSetNXExpectedKey, mSetNXExpectedData).Return(true, nil)
+	m.On("SetNX", mSetNXExpectedKey, mSetNXExpectedData, time.Duration(0)).Return(true, nil)
 	status, err := i.SetIfNotExists("key1", "data")
 	assert.Nil(t, err)
 	assert.True(t, status)
@@ -926,7 +937,7 @@ func TestSetIfNotExistsSuccessfullyNOKStatus(t *testing.T) {
 
 	mSetNXExpectedKey := string("{namespace},key1")
 	mSetNXExpectedData := interface{}("data")
-	m.On("SetNX", mSetNXExpectedKey, mSetNXExpectedData).Return(false, nil)
+	m.On("SetNX", mSetNXExpectedKey, mSetNXExpectedData, time.Duration(0)).Return(false, nil)
 	status, err := i.SetIfNotExists("key1", "data")
 	assert.Nil(t, err)
 	assert.False(t, status)
@@ -938,7 +949,7 @@ func TestSetIfNotExistsFailure(t *testing.T) {
 
 	mSetNXExpectedKey := string("{namespace},key1")
 	mSetNXExpectedData := interface{}("data")
-	m.On("SetNX", mSetNXExpectedKey, mSetNXExpectedData).Return(false, errors.New("Some error"))
+	m.On("SetNX", mSetNXExpectedKey, mSetNXExpectedData, time.Duration(0)).Return(false, errors.New("Some error"))
 	status, err := i.SetIfNotExists("key1", "data")
 	assert.NotNil(t, err)
 	assert.False(t, status)
@@ -1075,7 +1086,7 @@ func TestRemoveAllAndPublishKeysReturnError(t *testing.T) {
 	mKeysExpected := string("{namespace},*")
 	mKeysReturn := []string{"{namespace},key1", "{namespace},key2"}
 	mDelExpected := mKeysReturn
-	expectedChannelAndEvent := []string{"{namespace},channel", "event" }
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	m.On("Keys", mKeysExpected).Return(mKeysReturn, errors.New("Some error"))
 	m.AssertNotCalled(t, "DelMPub", expectedChannelAndEvent, mDelExpected)
 	err := i.RemoveAllAndPublish([]string{"channel", "event"})
@@ -1223,7 +1234,7 @@ func TestGetMembersSuccessfully(t *testing.T) {
 	m.On("SMembers", groupExpected).Return(returnExpected, nil)
 
 	result, err := i.GetMembers("group")
-	assert.Nil(t,err)
+	assert.Nil(t, err)
 	assert.Equal(t, result, returnExpected)
 	m.AssertExpectations(t)
 }
@@ -1236,7 +1247,7 @@ func TestGetMembersFail(t *testing.T) {
 	m.On("SMembers", groupExpected).Return(returnExpected, errors.New("Some error"))
 
 	result, err := i.GetMembers("group")
-	assert.NotNil(t,err)
+	assert.NotNil(t, err)
 	assert.Equal(t, []string{}, result)
 	m.AssertExpectations(t)
 }
@@ -1307,5 +1318,196 @@ func TestGroupSizeFail(t *testing.T) {
 	result, err := i.GroupSize("group")
 	assert.NotNil(t, err)
 	assert.Equal(t, int64(0), result)
+	m.AssertExpectations(t)
+}
+
+func TestLockResourceSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, nil)
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{})
+	assert.Nil(t, err)
+	assert.NotNil(t, lock)
+	m.AssertExpectations(t)
+}
+
+func TestLockResourceFailure(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, errors.New("Some error"))
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{})
+	assert.NotNil(t, err)
+	assert.Nil(t, lock)
+	m.AssertExpectations(t)
+}
+
+func TestLockResourceTrySeveralTimesSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(false, nil).Once()
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, nil).Once()
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{
+		RetryCount: 2,
+	})
+	assert.Nil(t, err)
+	assert.NotNil(t, lock)
+	m.AssertExpectations(t)
+}
+
+func TestLockResourceTrySeveralTimesFailure(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(false, nil).Once()
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, errors.New("Some error")).Once()
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{
+		RetryCount: 2,
+	})
+	assert.NotNil(t, err)
+	assert.Nil(t, lock)
+	m.AssertExpectations(t)
+}
+
+func TestLockResourceTrySeveralTimesUnableToGetResource(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(false, nil).Once()
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(false, nil).Once()
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{
+		RetryCount: 1,
+	})
+	assert.NotNil(t, err)
+	assert.EqualError(t, err, "Lock not obtained")
+	assert.Nil(t, lock)
+	m.AssertExpectations(t)
+}
+
+func TestReleaseResourceSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, nil).Once()
+	m.On("DelIE", resourceExpected, mock.Anything).Return(true, nil).Once()
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{
+		RetryCount: 1,
+	})
+	err2 := lock.ReleaseResource()
+	assert.Nil(t, err)
+	assert.NotNil(t, lock)
+	assert.Nil(t, err2)
+	m.AssertExpectations(t)
+}
+
+func TestReleaseResourceFailure(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, nil).Once()
+	m.On("DelIE", resourceExpected, mock.Anything).Return(true, errors.New("Some error")).Once()
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{
+		RetryCount: 1,
+	})
+	err2 := lock.ReleaseResource()
+	assert.Nil(t, err)
+	assert.NotNil(t, lock)
+	assert.NotNil(t, err2)
+	m.AssertExpectations(t)
+}
+
+func TestReleaseResourceLockNotHeld(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, nil).Once()
+	m.On("DelIE", resourceExpected, mock.Anything).Return(false, nil).Once()
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{
+		RetryCount: 1,
+	})
+	err2 := lock.ReleaseResource()
+	assert.Nil(t, err)
+	assert.NotNil(t, lock)
+	assert.NotNil(t, err2)
+	assert.EqualError(t, err2, "Lock not held")
+	m.AssertExpectations(t)
+}
+
+func TestRefreshResourceSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, nil).Once()
+	m.On("PExpireIE", resourceExpected, mock.Anything, time.Duration(1)).Return(nil).Once()
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{
+		RetryCount: 1,
+	})
+	err2 := lock.RefreshResource(time.Duration(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, lock)
+	assert.Nil(t, err2)
+	m.AssertExpectations(t)
+}
+
+func TestRefreshResourceFailure(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("SetNX", resourceExpected, mock.Anything, time.Duration(1)).Return(true, nil).Once()
+	m.On("PExpireIE", resourceExpected, mock.Anything, time.Duration(1)).Return(errors.New("Some error")).Once()
+
+	lock, err := i.LockResource("resource", time.Duration(1), &sdlgo.Options{
+		RetryCount: 1,
+	})
+	err2 := lock.RefreshResource(time.Duration(1))
+	assert.Nil(t, err)
+	assert.NotNil(t, lock)
+	assert.NotNil(t, err2)
+	m.AssertExpectations(t)
+}
+
+func TestCheckResourceSuccessfully(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("PTTL", resourceExpected).Return(time.Duration(1), nil)
+	result, err := i.CheckResource("resource")
+	assert.Nil(t, err)
+	assert.Equal(t, result, time.Duration(1))
+	m.AssertExpectations(t)
+}
+
+func TestCheckResourceFailure(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("PTTL", resourceExpected).Return(time.Duration(1), errors.New("Some error"))
+	result, err := i.CheckResource("resource")
+	assert.NotNil(t, err)
+	assert.EqualError(t, err, "Some error")
+	assert.Equal(t, result, time.Duration(0))
+	m.AssertExpectations(t)
+}
+
+func TestCheckResourceInvalidResource(t *testing.T) {
+	m, i := setup()
+
+	resourceExpected := "{namespace},resource"
+	m.On("PTTL", resourceExpected).Return(time.Duration(-1), nil)
+	result, err := i.CheckResource("resource")
+	assert.NotNil(t, err)
+	assert.EqualError(t, err, "invalid resource given, no expiration time attached")
+	assert.Equal(t, result, time.Duration(0))
 	m.AssertExpectations(t)
 }

@@ -18,10 +18,15 @@
 package sdlgo
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
+	"sync"
+	"time"
 
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 )
@@ -32,6 +37,8 @@ type SdlInstance struct {
 	nameSpace      string
 	nsPrefix       string
 	eventSeparator string
+	mutex          sync.Mutex
+	tmp            []byte
 	iDatabase
 }
 
@@ -294,7 +301,7 @@ func (s *SdlInstance) SetIf(key string, oldData, newData interface{}) (bool, err
 //given channel.
 func (s *SdlInstance) SetIfNotExistsAndPublish(channelsAndEvents []string, key string, data interface{}) (bool, error) {
 	if len(channelsAndEvents) == 0 {
-		return s.SetNX(s.nsPrefix+key, data)
+		return s.SetNX(s.nsPrefix+key, data, 0)
 	}
 	if err := s.checkChannelsAndEvents("SetIfNotExistsAndPublish", channelsAndEvents); err != nil {
 		return false, err
@@ -307,7 +314,7 @@ func (s *SdlInstance) SetIfNotExistsAndPublish(channelsAndEvents []string, key s
 //then it's value is not changed. Checking the key existence and potential set operation
 //is done atomically.
 func (s *SdlInstance) SetIfNotExists(key string, data interface{}) (bool, error) {
-	return s.SetNX(s.nsPrefix+key, data)
+	return s.SetNX(s.nsPrefix+key, data, 0)
 }
 
 //RemoveAndPublish removes data from SDL. Operation is done atomically, i.e. either all succeeds or fails.
@@ -466,6 +473,122 @@ func (s *SdlInstance) GroupSize(group string) (int64, error) {
 	return retVal, err
 }
 
+func (s *SdlInstance) randomToken() (string, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if len(s.tmp) == 0 {
+		s.tmp = make([]byte, 16)
+	}
+
+	if _, err := io.ReadFull(rand.Reader, s.tmp); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(s.tmp), nil
+}
+
+//LockResource function is used for locking a resource. The resource lock in
+//practice is a key with random value that is set to expire after a time
+//period. The value written to key is a random value, thus only the instance
+//created a lock, can release it. Resource locks are per namespace.
+func (s *SdlInstance) LockResource(resource string, expiration time.Duration, opt *Options) (*Lock, error) {
+	value, err := s.randomToken()
+	if err != nil {
+		return nil, err
+	}
+
+	var retryTimer *time.Timer
+	for i, attempts := 0, opt.getRetryCount()+1; i < attempts; i++ {
+		ok, err := s.SetNX(s.nsPrefix+resource, value, expiration)
+		if err != nil {
+			return nil, err
+		} else if ok {
+			return &Lock{s: s, key: resource, value: value}, nil
+		}
+		if retryTimer == nil {
+			retryTimer = time.NewTimer(opt.getRetryWait())
+			defer retryTimer.Stop()
+		} else {
+			retryTimer.Reset(opt.getRetryWait())
+		}
+
+		select {
+		case <-retryTimer.C:
+		}
+	}
+	return nil, errors.New("Lock not obtained")
+}
+
+//ReleaseResource removes the lock from a resource. If lock is already
+//expired or some other instance is keeping the lock (lock taken after expiration),
+//an error is returned.
+func (l *Lock) ReleaseResource() error {
+	ok, err := l.s.DelIE(l.s.nsPrefix+l.key, l.value)
+
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("Lock not held")
+	}
+	return nil
+}
+
+//RefreshResource function can be used to set a new expiration time for the
+//resource lock (if the lock still exists). The old remaining expiration
+//time is overwritten with the given new expiration time.
+func (l *Lock) RefreshResource(expiration time.Duration) error {
+	err := l.s.PExpireIE(l.s.nsPrefix+l.key, l.value, expiration)
+	return err
+}
+
+//CheckResource returns the expiration time left for a resource.
+//If the resource doesn't exist, -2 is returned.
+func (s *SdlInstance) CheckResource(resource string) (time.Duration, error) {
+	result, err := s.PTTL(s.nsPrefix + resource)
+	if err != nil {
+		return 0, err
+	}
+	if result == time.Duration(-1) {
+		return 0, errors.New("invalid resource given, no expiration time attached")
+	}
+	return result, nil
+}
+
+//Options struct defines the behaviour for getting the resource lock.
+type Options struct {
+	//The number of time the lock will be tried.
+	//Default: 0 = no retry
+	RetryCount int
+
+	//Wait between the retries.
+	//Default: 100ms
+	RetryWait time.Duration
+}
+
+func (o *Options) getRetryCount() int {
+	if o != nil && o.RetryCount > 0 {
+		return o.RetryCount
+	}
+	return 0
+}
+
+func (o *Options) getRetryWait() time.Duration {
+	if o != nil && o.RetryWait > 0 {
+		return o.RetryWait
+	}
+	return 100 * time.Millisecond
+}
+
+//Lock struct identifies the resource lock instance. Releasing and adjusting the
+//expirations are done using the methods defined for this struct.
+type Lock struct {
+	s     *SdlInstance
+	key   string
+	value string
+}
+
 type iDatabase interface {
 	SubscribeChannelDB(cb sdlgoredis.ChannelNotificationCb, channelPrefix, eventSeparator string, channels ...string)
 	UnsubscribeChannelDB(channels ...string)
@@ -478,7 +601,7 @@ type iDatabase interface {
 	Keys(key string) ([]string, error)
 	SetIE(key string, oldData, newData interface{}) (bool, error)
 	SetIEPub(channel, message, key string, oldData, newData interface{}) (bool, error)
-	SetNX(key string, data interface{}) (bool, error)
+	SetNX(key string, data interface{}, expiration time.Duration) (bool, error)
 	SetNXPub(channel, message, key string, data interface{}) (bool, error)
 	DelIE(key string, data interface{}) (bool, error)
 	DelIEPub(channel, message, key string, data interface{}) (bool, error)
@@ -487,4 +610,6 @@ type iDatabase interface {
 	SMembers(key string) ([]string, error)
 	SIsMember(key string, data interface{}) (bool, error)
 	SCard(key string) (int64, error)
+	PTTL(key string) (time.Duration, error)
+	PExpireIE(key string, data interface{}, expiration time.Duration) error
 }

@@ -1,4 +1,3 @@
-
 /*
    Copyright (c) 2019 AT&T Intellectual Property.
    Copyright (c) 2018-2019 Nokia.
@@ -19,12 +18,13 @@
 package sdlgoredis_test
 
 import (
-	"testing"
 	"errors"
+	"strconv"
+	"testing"
 	"time"
 
-	"github.com/go-redis/redis"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -109,6 +109,26 @@ func (m *clientMock) SCard(key string) *redis.IntCmd {
 	return m.Called(key).Get(0).(*redis.IntCmd)
 }
 
+func (m *clientMock) PTTL(key string) *redis.DurationCmd {
+	return m.Called(key).Get(0).(*redis.DurationCmd)
+}
+
+func (m *clientMock) Eval(script string, keys []string, args ...interface{}) *redis.Cmd {
+	return m.Called(script, keys).Get(0).(*redis.Cmd)
+}
+
+func (m *clientMock) EvalSha(sha1 string, keys []string, args ...interface{}) *redis.Cmd {
+	return m.Called(sha1, keys, args).Get(0).(*redis.Cmd)
+}
+
+func (m *clientMock) ScriptExists(scripts ...string) *redis.BoolSliceCmd {
+	return m.Called(scripts).Get(0).(*redis.BoolSliceCmd)
+}
+
+func (m *clientMock) ScriptLoad(script string) *redis.StringCmd {
+	return m.Called(script).Get(0).(*redis.StringCmd)
+}
+
 func setSubscribeNotifications() (*pubSubMock, sdlgoredis.SubscribeFn) {
 	mock := new(pubSubMock)
 	return mock, func(client sdlgoredis.RedisClient, channels ...string) sdlgoredis.Subscriber {
@@ -128,12 +148,12 @@ func setup(commandsExists bool) (*pubSubMock, *clientMock, *sdlgoredis.DB) {
 
 	if commandsExists {
 		cmdResult = map[string]*redis.CommandInfo{
-			"setie": &dummyCommandInfo,
-			"delie": &dummyCommandInfo,
+			"setie":    &dummyCommandInfo,
+			"delie":    &dummyCommandInfo,
 			"setiepub": &dummyCommandInfo,
 			"setnxpub": &dummyCommandInfo,
 			"msetmpub": &dummyCommandInfo,
-			"delmpub": &dummyCommandInfo,
+			"delmpub":  &dummyCommandInfo,
 		}
 	} else {
 		cmdResult = map[string]*redis.CommandInfo{
@@ -149,7 +169,7 @@ func setup(commandsExists bool) (*pubSubMock, *clientMock, *sdlgoredis.DB) {
 func TestMSetSuccessfully(t *testing.T) {
 	_, r, db := setup(true)
 	expectedKeysAndValues := []interface{}{"key1", "value1", "key2", 2}
-	r.On("MSet",expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	r.On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
 	err := db.MSet("key1", "value1", "key2", 2)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -158,7 +178,7 @@ func TestMSetSuccessfully(t *testing.T) {
 func TestMSetFailure(t *testing.T) {
 	_, r, db := setup(true)
 	expectedKeysAndValues := []interface{}{"key1", "value1", "key2", 2}
-	r.On("MSet",expectedKeysAndValues).Return(redis.NewStatusResult("OK", errors.New("Some error")))
+	r.On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", errors.New("Some error")))
 	err := db.MSet("key1", "value1", "key2", 2)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -167,30 +187,30 @@ func TestMSetFailure(t *testing.T) {
 func TestMSetMPubSuccessfully(t *testing.T) {
 	_, r, db := setup(true)
 	expectedMessage := []interface{}{"MSETMPUB", 2, 2, "key1", "val1", "key2", "val2",
-									 "chan1", "event1", "chan2", "event2"}
+		"chan1", "event1", "chan2", "event2"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("", nil))
 	assert.Nil(t, db.MSetMPub([]string{"chan1", "event1", "chan2", "event2"},
-							  "key1", "val1", "key2", "val2"))
+		"key1", "val1", "key2", "val2"))
 	r.AssertExpectations(t)
 }
 
 func TestMsetMPubFailure(t *testing.T) {
 	_, r, db := setup(true)
 	expectedMessage := []interface{}{"MSETMPUB", 2, 2, "key1", "val1", "key2", "val2",
-									 "chan1", "event1", "chan2", "event2"}
+		"chan1", "event1", "chan2", "event2"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("", errors.New("Some error")))
 	assert.NotNil(t, db.MSetMPub([]string{"chan1", "event1", "chan2", "event2"},
-							     "key1", "val1", "key2", "val2"))
+		"key1", "val1", "key2", "val2"))
 	r.AssertExpectations(t)
 }
 
 func TestMSetMPubCommandMissing(t *testing.T) {
 	_, r, db := setup(false)
 	expectedMessage := []interface{}{"MSETMPUB", 2, 2, "key1", "val1", "key2", "val2",
-									 "chan1", "event1", "chan2", "event2"}
+		"chan1", "event1", "chan2", "event2"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
 	assert.NotNil(t, db.MSetMPub([]string{"chan1", "event1", "chan2", "event2"},
-								 "key1", "val1", "key2", "val2"))
+		"key1", "val1", "key2", "val2"))
 	r.AssertExpectations(t)
 
 }
@@ -211,7 +231,7 @@ func TestMGetFailure(t *testing.T) {
 	expectedKeys := []string{"key1", "key2", "key3"}
 	expectedResult := []interface{}{nil}
 	r.On("MGet", expectedKeys).Return(redis.NewSliceResult(expectedResult,
-														   errors.New("Some error")))
+		errors.New("Some error")))
 	result, err := db.MGet([]string{"key1", "key2", "key3"})
 	assert.Equal(t, result, expectedResult)
 	assert.NotNil(t, err)
@@ -221,30 +241,30 @@ func TestMGetFailure(t *testing.T) {
 func TestDelMPubSuccessfully(t *testing.T) {
 	_, r, db := setup(true)
 	expectedMessage := []interface{}{"DELMPUB", 2, 2, "key1", "key2", "chan1", "event1",
-									 "chan2", "event2"}
+		"chan2", "event2"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("", nil))
 	assert.Nil(t, db.DelMPub([]string{"chan1", "event1", "chan2", "event2"},
-							 []string{"key1", "key2"}))
+		[]string{"key1", "key2"}))
 	r.AssertExpectations(t)
 }
 
 func TestDelMPubFailure(t *testing.T) {
 	_, r, db := setup(true)
 	expectedMessage := []interface{}{"DELMPUB", 2, 2, "key1", "key2", "chan1", "event1",
-									 "chan2", "event2"}
+		"chan2", "event2"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("", errors.New("Some error")))
 	assert.NotNil(t, db.DelMPub([]string{"chan1", "event1", "chan2", "event2"},
-								[]string{"key1", "key2"}))
+		[]string{"key1", "key2"}))
 	r.AssertExpectations(t)
 }
 
 func TestDelMPubCommandMissing(t *testing.T) {
 	_, r, db := setup(false)
 	expectedMessage := []interface{}{"DELMPUB", 2, 2, "key1", "key2", "chan1", "event1",
-									 "chan2", "event2"}
+		"chan2", "event2"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
 	assert.NotNil(t, db.DelMPub([]string{"chan1", "event1", "chan2", "event2"},
-								[]string{"key1", "key2"}))
+		[]string{"key1", "key2"}))
 	r.AssertExpectations(t)
 }
 
@@ -280,7 +300,7 @@ func TestKeysFailure(t *testing.T) {
 	expectedPattern := "pattern*"
 	expectedResult := []string{}
 	r.On("Keys", expectedPattern).Return(redis.NewStringSliceResult(expectedResult,
-																    errors.New("Some error")))
+		errors.New("Some error")))
 	_, err := db.Keys("pattern*")
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -411,7 +431,7 @@ func TestSetNXSuccessfully(t *testing.T) {
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SetNX", expectedKey, expectedData, time.Duration(0)).Return(redis.NewBoolResult(true, nil))
-	result, err := db.SetNX("key", "data")
+	result, err := db.SetNX("key", "data", 0)
 	assert.True(t, result)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -422,7 +442,7 @@ func TestSetNXUnsuccessfully(t *testing.T) {
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SetNX", expectedKey, expectedData, time.Duration(0)).Return(redis.NewBoolResult(false, nil))
-	result, err := db.SetNX("key", "data")
+	result, err := db.SetNX("key", "data", 0)
 	assert.False(t, result)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -433,8 +453,8 @@ func TestSetNXFailure(t *testing.T) {
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SetNX", expectedKey, expectedData, time.Duration(0)).
-		Return(redis.NewBoolResult(false,errors.New("Some error")))
-	result, err := db.SetNX("key", "data")
+		Return(redis.NewBoolResult(false, errors.New("Some error")))
+	result, err := db.SetNX("key", "data", 0)
 	assert.False(t, result)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -572,7 +592,7 @@ func TestSMembersFailure(t *testing.T) {
 	expectedKey := "key"
 	expectedResult := []string{"member1", "member2"}
 	r.On("SMembers", expectedKey).Return(redis.NewStringSliceResult(expectedResult,
-																	errors.New("Some error")))
+		errors.New("Some error")))
 	result, err := db.SMembers("key")
 	assert.Equal(t, result, expectedResult)
 	assert.NotNil(t, err)
@@ -646,10 +666,10 @@ func TestSubscribeChannelDBSubscribeRXUnsubscribe(t *testing.T) {
 	ps.On("Close").Return(nil)
 	count := 0
 	receivedChannel := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string){
+	db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel = channel
-		},"{prefix}", "---", "{prefix}channel")
+	}, "{prefix}", "---", "{prefix}channel")
 	ch <- &msg
 	db.UnsubscribeChannelDB("{prefix}channel")
 	time.Sleep(1 * time.Second)
@@ -679,16 +699,16 @@ func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
 	ps.On("Close").Return(nil)
 	count := 0
 	receivedChannel1 := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string){
+	db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel1 = channel
-		},"{prefix}", "---", "{prefix}channel1")
+	}, "{prefix}", "---", "{prefix}channel1")
 	ch <- &msg1
 	receivedChannel2 := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string){
+	db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel2 = channel
-		},"{prefix}", "---", "{prefix}channel2")
+	}, "{prefix}", "---", "{prefix}channel2")
 
 	db.UnsubscribeChannelDB("{prefix}channel1")
 	ch <- &msg2
@@ -699,4 +719,70 @@ func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
 	assert.Equal(t, "channel2", receivedChannel2)
 	r.AssertExpectations(t)
 	ps.AssertExpectations(t)
+}
+
+func TestPTTLSuccessfully(t *testing.T) {
+	_, r, db := setup(true)
+	expectedKey := "key"
+	expectedResult := time.Duration(1)
+	r.On("PTTL", expectedKey).Return(redis.NewDurationResult(expectedResult,
+		nil))
+	result, err := db.PTTL("key")
+	assert.Equal(t, result, expectedResult)
+	assert.Nil(t, err)
+	r.AssertExpectations(t)
+}
+
+func TestPTTLFailure(t *testing.T) {
+	_, r, db := setup(true)
+	expectedKey := "key"
+	expectedResult := time.Duration(1)
+	r.On("PTTL", expectedKey).Return(redis.NewDurationResult(expectedResult,
+		errors.New("Some error")))
+	result, err := db.PTTL("key")
+	assert.Equal(t, result, expectedResult)
+	assert.NotNil(t, err)
+	r.AssertExpectations(t)
+}
+
+func TestPExpireIESuccessfully(t *testing.T) {
+	_, r, db := setup(true)
+	expectedKey := "key"
+	expectedData := "data"
+	expectedDuration := strconv.FormatInt(int64(10000), 10)
+
+	r.On("EvalSha", mock.Anything, []string{expectedKey}, []interface{}{expectedData, expectedDuration}).
+		Return(redis.NewCmdResult(int64(1), nil))
+
+	err := db.PExpireIE("key", "data", 10*time.Second)
+	assert.Nil(t, err)
+	r.AssertExpectations(t)
+}
+
+func TestPExpireIEFailure(t *testing.T) {
+	_, r, db := setup(true)
+	expectedKey := "key"
+	expectedData := "data"
+	expectedDuration := strconv.FormatInt(int64(10000), 10)
+
+	r.On("EvalSha", mock.Anything, []string{expectedKey}, []interface{}{expectedData, expectedDuration}).
+		Return(redis.NewCmdResult(int64(1), errors.New("Some error")))
+
+	err := db.PExpireIE("key", "data", 10*time.Second)
+	assert.NotNil(t, err)
+	r.AssertExpectations(t)
+}
+
+func TestPExpireIELockNotHeld(t *testing.T) {
+	_, r, db := setup(true)
+	expectedKey := "key"
+	expectedData := "data"
+	expectedDuration := strconv.FormatInt(int64(10000), 10)
+
+	r.On("EvalSha", mock.Anything, []string{expectedKey}, []interface{}{expectedData, expectedDuration}).
+		Return(redis.NewCmdResult(int64(0), nil))
+
+	err := db.PExpireIE("key", "data", 10*time.Second)
+	assert.NotNil(t, err)
+	r.AssertExpectations(t)
 }
