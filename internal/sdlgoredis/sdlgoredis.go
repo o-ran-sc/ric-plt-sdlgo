@@ -133,6 +133,7 @@ func Create() *DB {
 		Password: "", // no password set
 		DB:       0,  // use default DB
 		PoolSize: 20,
+		MaxRetries: 2,
 	})
 	db := CreateDB(client, subscribeNotifications)
 	db.CheckCommands()
