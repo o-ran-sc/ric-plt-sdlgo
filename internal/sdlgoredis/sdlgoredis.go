@@ -92,7 +92,7 @@ func checkIntResultAndError(result interface{}, err error) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if result == 1 {
+	if result.(int64) == int64(1) {
 		return true, nil
 	}
 	return false, nil
@@ -119,6 +119,7 @@ func CreateDB(client RedisClient, subscribe SubscribeFn) *DB {
 }
 
 func Create() *DB {
+	var client *redis.Client
 	hostname := os.Getenv("DBAAS_SERVICE_HOST")
 	if hostname == "" {
 		hostname = "localhost"
@@ -127,14 +128,26 @@ func Create() *DB {
 	if port == "" {
 		port = "6379"
 	}
-	redisAddress := hostname + ":" + port
-	client := redis.NewClient(&redis.Options{
-		Addr:     redisAddress,
-		Password: "", // no password set
-		DB:       0,  // use default DB
-		PoolSize: 20,
-		MaxRetries: 2,
-	})
+	sentinelPort := os.Getenv("DBAAS_SERVICE_SENTINEL_PORT")
+	masterName := os.Getenv("DBAAS_MASTER_NAME")
+	if sentinelPort == "" {
+		redisAddress := hostname + ":" + port
+		client = redis.NewClient(&redis.Options{
+			Addr:       redisAddress,
+			Password:   "", // no password set
+			DB:         0,  // use default DB
+			PoolSize:   20,
+			MaxRetries: 2,
+		})
+	} else {
+		sentinelAddress := hostname + ":" + sentinelPort
+		client = redis.NewFailoverClient(&redis.FailoverOptions{
+			MasterName:    masterName,
+			SentinelAddrs: []string{sentinelAddress},
+			PoolSize:      20,
+			MaxRetries:    2,
+		})
+	}
 	db := CreateDB(client, subscribeNotifications)
 	db.CheckCommands()
 	return db
