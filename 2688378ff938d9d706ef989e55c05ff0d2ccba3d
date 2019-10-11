@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ff475537_58d2d76e",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 1000005
+      },
+      "writtenOn": "2019-10-11T11:59:23Z",
+      "side": 1,
+      "message": "Motivation of this change is not clear to me after reading commit log. Maybe the idea behind DB connection pooling should be opened a bit?",
+      "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3aad3589_f204dfae",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 592,
+      "author": {
+        "id": 1000005
+      },
+      "writtenOn": "2019-10-11T11:59:23Z",
+      "side": 1,
+      "message": "There should be good documentation for public interfaces.",
+      "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "df11ddd2_a19bb0c0",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 593,
+      "author": {
+        "id": 1000005
+      },
+      "writtenOn": "2019-10-11T11:59:23Z",
+      "side": 1,
+      "message": "Should we have own callback type now when this function is public?",
+      "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    }
+  ]
+}
