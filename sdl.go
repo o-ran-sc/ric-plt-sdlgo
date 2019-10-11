@@ -42,21 +42,31 @@ type SdlInstance struct {
 	iDatabase
 }
 
+//Database struct is a holder for the internal database instance. Applications
+//can use this exported data type to locally store a reference to database
+//instance returned from NewDabase() function.
+type Database struct {
+	instance iDatabase
+}
+
 //NewDatabase creates a connection to database that will be used
-//as a backend for the key-value storage. The returned value shall
-//be given as a parameter when calling NewKeyValStorage
-func NewDatabase() *sdlgoredis.DB {
-	return sdlgoredis.Create()
+//as a backend for the key-value storage. The returned value
+//can be reused between multiple SDL instances in which case each instance
+//is using the same connection.
+func NewDatabase() *Database {
+	return &Database{
+		instance: sdlgoredis.Create(),
+	}
 }
 
 //NewSdlInstance creates a new sdl instance using the given namespace.
 //The database used as a backend is given as a parameter
-func NewSdlInstance(NameSpace string, db iDatabase) *SdlInstance {
+func NewSdlInstance(NameSpace string, db *Database) *SdlInstance {
 	return &SdlInstance{
 		nameSpace:      NameSpace,
 		nsPrefix:       "{" + NameSpace + "},",
 		eventSeparator: "___",
-		iDatabase:      db,
+		iDatabase:      db.instance,
 	}
 }
 
@@ -590,7 +600,7 @@ type Lock struct {
 }
 
 type iDatabase interface {
-	SubscribeChannelDB(cb sdlgoredis.ChannelNotificationCb, channelPrefix, eventSeparator string, channels ...string)
+	SubscribeChannelDB(cb func(string, ...string), channelPrefix, eventSeparator string, channels ...string)
 	UnsubscribeChannelDB(channels ...string)
 	MSet(pairs ...interface{}) error
 	MSetMPub(channelsAndEvents []string, pairs ...interface{}) error

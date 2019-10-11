@@ -183,7 +183,7 @@ func (db *DB) UnsubscribeChannelDB(channels ...string) {
 	}
 }
 
-func (db *DB) SubscribeChannelDB(cb ChannelNotificationCb, channelPrefix, eventSeparator string, channels ...string) {
+func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, eventSeparator string, channels ...string) {
 	if len(db.cbMap) == 0 {
 		for _, v := range channels {
 			db.cbMap[v] = cb
