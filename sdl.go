@@ -39,7 +39,7 @@ type SdlInstance struct {
 	eventSeparator string
 	mutex          sync.Mutex
 	tmp            []byte
-	iDatabase
+	IDatabase
 }
 
 //NewDatabase creates a connection to database that will be used
@@ -51,12 +51,12 @@ func NewDatabase() *sdlgoredis.DB {
 
 //NewSdlInstance creates a new sdl instance using the given namespace.
 //The database used as a backend is given as a parameter
-func NewSdlInstance(NameSpace string, db iDatabase) *SdlInstance {
+func NewSdlInstance(NameSpace string, db IDatabase) *SdlInstance {
 	return &SdlInstance{
 		nameSpace:      NameSpace,
 		nsPrefix:       "{" + NameSpace + "},",
 		eventSeparator: "___",
-		iDatabase:      db,
+		IDatabase:      db,
 	}
 }
 
@@ -589,7 +589,7 @@ type Lock struct {
 	value string
 }
 
-type iDatabase interface {
+type IDatabase interface {
 	SubscribeChannelDB(cb sdlgoredis.ChannelNotificationCb, channelPrefix, eventSeparator string, channels ...string)
 	UnsubscribeChannelDB(channels ...string)
 	MSet(pairs ...interface{}) error
