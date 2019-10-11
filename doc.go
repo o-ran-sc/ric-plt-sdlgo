@@ -27,6 +27,9 @@ event mechanism that can be used to notify listeners that data was changed.
 This SDL version assumes that the DBAAS service provided by O-RAN community is
 working as a storage backend.
 
+All functions except receiving of notifications are safe for concurrent usage by
+multiple goroutines.
+
 Namespace
 
 A shared data layer connection is instantiated to a namespace and data is
