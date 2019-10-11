@@ -50,6 +50,24 @@
       "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1b1b712b_17069178",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 593,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2019-10-11T12:11:42Z",
+      "side": 1,
+      "message": "Could you elaborate a bit, what do you exactly mean with own callback type?",
+      "parentUuid": "df11ddd2_a19bb0c0",
+      "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
     }
   ]
 }
