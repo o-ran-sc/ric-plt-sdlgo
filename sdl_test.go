@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
-	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -33,7 +32,7 @@ type mockDB struct {
 	mock.Mock
 }
 
-func (m *mockDB) SubscribeChannelDB(cb sdlgoredis.ChannelNotificationCb, channelPrefix, eventSeparator string, channels ...string) {
+func (m *mockDB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, eventSeparator string, channels ...string) {
 	m.Called(cb, channelPrefix, eventSeparator, channels)
 }
 
@@ -171,7 +170,7 @@ func TestSubscribeChannel(t *testing.T) {
 	expectedCB := func(channel string, events ...string) {}
 	expectedChannels := []string{"{namespace},channel1", "{namespace},channel2"}
 
-	m.On("SubscribeChannelDB", mock.AnythingOfType("sdlgoredis.ChannelNotificationCb"), "{namespace},", "___", expectedChannels).Return()
+	m.On("SubscribeChannelDB", mock.AnythingOfType("func(string, ...string)"), "{namespace},", "___", expectedChannels).Return()
 	i.SubscribeChannel(expectedCB, "channel1", "channel2")
 	m.AssertExpectations(t)
 }
