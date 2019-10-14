@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "e6cd08ce_17663ad9",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2019-10-14T11:13:11Z",
+      "side": 1,
+      "message": "Reworded the commit log",
+      "parentUuid": "ff475537_58d2d76e",
+      "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "3aad3589_f204dfae",
         "filename": "sdl.go",
         "patchSetId": 1
@@ -30,6 +48,24 @@
       "writtenOn": "2019-10-11T11:59:23Z",
       "side": 1,
       "message": "There should be good documentation for public interfaces.",
+      "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "3e64251c_0b9d34f1",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 592,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2019-10-14T11:13:11Z",
+      "side": 1,
+      "message": "Added documentation for interface",
+      "parentUuid": "3aad3589_f204dfae",
       "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
       "unresolved": true
@@ -101,6 +137,24 @@
       "side": 1,
       "message": "ok, got your point. Perhaps I should still think how to expose the interface but at the same time do not expose anything ;)",
       "parentUuid": "627f8309_e3275a47",
+      "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8c9b6fd7_9f44c95f",
+        "filename": "sdl.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 593,
+      "author": {
+        "id": 1000004
+      },
+      "writtenOn": "2019-10-14T11:13:11Z",
+      "side": 1,
+      "message": "Use raw function prototype instead of predefined",
+      "parentUuid": "22181c2b_099bdc70",
       "revId": "2688378ff938d9d706ef989e55c05ff0d2ccba3d",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53",
       "unresolved": true
