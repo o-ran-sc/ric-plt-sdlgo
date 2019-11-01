@@ -430,7 +430,7 @@ func (s *SdlInstance) RemoveAllAndPublish(channelsAndEvents []string) error {
 		if len(channelsAndEvents) == 0 {
 			return s.Del(keys)
 		}
-		if err := s.checkChannelsAndEvents("RemoveIfAndPublish", channelsAndEvents); err != nil {
+		if err := s.checkChannelsAndEvents("RemoveAllAndPublish", channelsAndEvents); err != nil {
 			return err
 		}
 		channelsAndEventsPrepared := s.prepareChannelsAndEvents(channelsAndEvents)

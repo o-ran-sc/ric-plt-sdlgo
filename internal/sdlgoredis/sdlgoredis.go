@@ -92,7 +92,7 @@ func checkIntResultAndError(result interface{}, err error) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if result.(int64) == int64(1) {
+	if result.(int) == int(1) {
 		return true, nil
 	}
 	return false, nil
