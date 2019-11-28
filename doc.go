@@ -16,6 +16,11 @@
 */
 
 /*
+ * This source code is part of the near-RT RIC (RAN Intelligent Controller)
+ * platform project (RICP).
+ */
+
+/*
 Package sdlgo provides a lightweight, high-speed interface for accessing shared data storage.
 
 Shared Data Layer (SDL) is a concept where applications can use and share data using a common

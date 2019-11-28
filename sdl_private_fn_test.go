@@ -15,6 +15,11 @@
    limitations under the License.
 */
 
+/*
+ * This source code is part of the near-RT RIC (RAN Intelligent Controller)
+ * platform project (RICP).
+ */
+
 package sdlgo
 
 //NewSdlInstanceForTest is used in unit tests only in order to replace the
