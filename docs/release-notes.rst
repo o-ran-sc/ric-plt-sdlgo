@@ -19,8 +19,7 @@
 Release-Notes
 =============
 
-This document provides the release notes for O-RAN SC Amber release of
-ric-plt/sdlgo.
+This document provides the release notes of the sdlgo.
 
 .. contents::
    :depth: 3
