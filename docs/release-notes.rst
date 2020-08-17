@@ -30,6 +30,10 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[v0.5.3] - 2020-08-17
+
+* Take Redis client version 6.15.9 into use.
+
 [0.5.1] - 2019-11-1
 
 * Add CI Dockerfile to run unit tests.
