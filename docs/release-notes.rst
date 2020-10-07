@@ -30,7 +30,11 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
-[v0.5.3] - 2020-08-17
+[0.5.4] - 2020-10-07
+
+* Fix Go routine race condition when new DB notifications are subscribed.
+
+[0.5.3] - 2020-08-17
 
 * Take Redis client version 6.15.9 into use.
 
