@@ -684,6 +684,42 @@ func TestSubscribeChannelDBSubscribeRXUnsubscribe(t *testing.T) {
 	ps.AssertExpectations(t)
 }
 
+func TestSubscribeChannelReDBSubscribeAfterUnsubscribe(t *testing.T) {
+	ps, r, db := setup(true)
+	ch := make(chan *redis.Message)
+	msg := redis.Message{
+		Channel: "{prefix}channel",
+		Pattern: "pattern",
+		Payload: "event",
+	}
+	ps.On("Channel").Return(ch)
+	ps.On("Unsubscribe").Return(nil)
+	ps.On("Close").Return(nil)
+	count := 0
+	receivedChannel := ""
+
+	db.SubscribeChannelDB(func(channel string, payload ...string) {
+		count++
+		receivedChannel = channel
+	}, "{prefix}", "---", "{prefix}channel")
+	ch <- &msg
+	db.UnsubscribeChannelDB("{prefix}channel")
+	time.Sleep(1 * time.Second)
+
+	db.SubscribeChannelDB(func(channel string, payload ...string) {
+		count++
+		receivedChannel = channel
+	}, "{prefix}", "---", "{prefix}channel")
+	ch <- &msg
+	db.UnsubscribeChannelDB("{prefix}channel")
+
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, 2, count)
+	assert.Equal(t, "channel", receivedChannel)
+	r.AssertExpectations(t)
+	ps.AssertExpectations(t)
+}
+
 func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
 	ps, r, db := setup(true)
 	ch := make(chan *redis.Message)

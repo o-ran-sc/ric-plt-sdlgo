@@ -25,28 +25,32 @@ package sdlgoredis
 import (
 	"errors"
 	"fmt"
+	"github.com/go-redis/redis"
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
-
-	"github.com/go-redis/redis"
 )
 
 type ChannelNotificationCb func(channel string, payload ...string)
 
+type addChannelInfo struct {
+	channel string
+	cb      ChannelNotificationCb
+}
+
 type intChannels struct {
-	addChannel    chan string
+	addChannel    chan addChannelInfo
 	removeChannel chan string
-	exit          chan bool
 }
 
 type DB struct {
-	client       RedisClient
-	subscribe    SubscribeFn
-	redisModules bool
-	cbMap        map[string]ChannelNotificationCb
-	ch           intChannels
+	client        RedisClient
+	subscribe     SubscribeFn
+	redisModules  bool
+	notifyWorkers int32
+	ch            intChannels
 }
 
 type Subscriber interface {
@@ -112,11 +116,9 @@ func CreateDB(client RedisClient, subscribe SubscribeFn) *DB {
 		client:       client,
 		subscribe:    subscribe,
 		redisModules: true,
-		cbMap:        make(map[string]ChannelNotificationCb, 0),
 		ch: intChannels{
-			addChannel:    make(chan string),
+			addChannel:    make(chan addChannelInfo),
 			removeChannel: make(chan string),
-			exit:          make(chan bool),
 		},
 	}
 
@@ -181,39 +183,38 @@ func (db *DB) CloseDB() error {
 func (db *DB) UnsubscribeChannelDB(channels ...string) {
 	for _, v := range channels {
 		db.ch.removeChannel <- v
-		delete(db.cbMap, v)
-		if len(db.cbMap) == 0 {
-			db.ch.exit <- true
-		}
 	}
 }
 
 func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, eventSeparator string, channels ...string) {
-	if len(db.cbMap) == 0 {
-		for _, v := range channels {
-			db.cbMap[v] = cb
-		}
-
-		go func(cbMap *map[string]ChannelNotificationCb,
+	if atomic.LoadInt32(&db.notifyWorkers) < 1 {
+		atomic.AddInt32(&db.notifyWorkers, 1)
+		go func(cb ChannelNotificationCb,
 			channelPrefix,
 			eventSeparator string,
 			ch intChannels,
 			channels ...string) {
+			defer func() { atomic.AddInt32(&db.notifyWorkers, -1) }()
+			cbMap := make(map[string]ChannelNotificationCb, 0)
+			for _, v := range channels {
+				cbMap[v] = cb
+			}
 			sub := db.subscribe(db.client, channels...)
 			rxChannel := sub.Channel()
 			for {
 				select {
 				case msg := <-rxChannel:
-					cb, ok := (*cbMap)[msg.Channel]
+					cb, ok := (cbMap)[msg.Channel]
 					if ok {
 						cb(strings.TrimPrefix(msg.Channel, channelPrefix), strings.Split(msg.Payload, eventSeparator)...)
 					}
-				case channel := <-ch.addChannel:
-					sub.Subscribe(channel)
+				case newChInfo := <-ch.addChannel:
+					cbMap[newChInfo.channel] = newChInfo.cb
+					sub.Subscribe(newChInfo.channel)
 				case channel := <-ch.removeChannel:
 					sub.Unsubscribe(channel)
-				case exit := <-ch.exit:
-					if exit {
+					delete(cbMap, channel)
+					if len(cbMap) == 0 {
 						if err := sub.Close(); err != nil {
 							fmt.Println(err)
 						}
@@ -221,12 +222,15 @@ func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, even
 					}
 				}
 			}
-		}(&db.cbMap, channelPrefix, eventSeparator, db.ch, channels...)
+		}(cb, channelPrefix, eventSeparator, db.ch, channels...)
 
 	} else {
 		for _, v := range channels {
-			db.cbMap[v] = cb
-			db.ch.addChannel <- v
+			newChInfo := addChannelInfo{
+				channel: v,
+				cb:      cb,
+			}
+			db.ch.addChannel <- newChInfo
 		}
 	}
 }
