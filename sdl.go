@@ -93,8 +93,6 @@ func NewSdlInstance(NameSpace string, db *Database) *SdlInstance {
 //callback as quickly as possible. E.g. reading in callback context should be avoided
 //and using of Go signals is recommended. Also it should be noted that in case of several
 //events received from different channels, callbacks are called in series one by one.
-//
-//This function is NOT SAFE FOR CONCURRENT USE by multiple goroutines.
 func (s *SdlInstance) SubscribeChannel(cb func(string, ...string), channels ...string) error {
 	s.SubscribeChannelDB(cb, s.nsPrefix, s.eventSeparator, s.setNamespaceToChannels(channels...)...)
 	return nil
