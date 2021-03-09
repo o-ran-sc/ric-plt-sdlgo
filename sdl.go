@@ -301,7 +301,7 @@ func (s *SdlInstance) SetIfAndPublish(channelsAndEvents []string, key string, ol
 		return false, err
 	}
 	channelsAndEventsPrepared := s.prepareChannelsAndEvents(channelsAndEvents)
-	return s.SetIEPub(channelsAndEventsPrepared[0], channelsAndEventsPrepared[1], s.nsPrefix+key, oldData, newData)
+	return s.SetIEPub(channelsAndEventsPrepared, s.nsPrefix+key, oldData, newData)
 }
 
 //SetIf atomically replaces existing data with newData in SDL if data matches the oldData.
@@ -322,7 +322,7 @@ func (s *SdlInstance) SetIfNotExistsAndPublish(channelsAndEvents []string, key s
 		return false, err
 	}
 	channelsAndEventsPrepared := s.prepareChannelsAndEvents(channelsAndEvents)
-	return s.SetNXPub(channelsAndEventsPrepared[0], channelsAndEventsPrepared[1], s.nsPrefix+key, data)
+	return s.SetNXPub(channelsAndEventsPrepared, s.nsPrefix+key, data)
 }
 
 //SetIfNotExists conditionally sets the value of a key. If key already exists in SDL,
@@ -381,7 +381,7 @@ func (s *SdlInstance) RemoveIfAndPublish(channelsAndEvents []string, key string,
 		return false, err
 	}
 	channelsAndEventsPrepared := s.prepareChannelsAndEvents(channelsAndEvents)
-	return s.DelIEPub(channelsAndEventsPrepared[0], channelsAndEventsPrepared[1], s.nsPrefix+key, data)
+	return s.DelIEPub(channelsAndEventsPrepared, s.nsPrefix+key, data)
 }
 
 //RemoveIf removes data from SDL conditionally. If existing data matches given data,
@@ -615,11 +615,11 @@ type iDatabase interface {
 	DelMPub(channelsAndEvents []string, keys []string) error
 	Keys(key string) ([]string, error)
 	SetIE(key string, oldData, newData interface{}) (bool, error)
-	SetIEPub(channel, message, key string, oldData, newData interface{}) (bool, error)
+	SetIEPub(channelsAndEvents []string, key string, oldData, newData interface{}) (bool, error)
 	SetNX(key string, data interface{}, expiration time.Duration) (bool, error)
-	SetNXPub(channel, message, key string, data interface{}) (bool, error)
+	SetNXPub(channelsAndEvents []string, key string, data interface{}) (bool, error)
 	DelIE(key string, data interface{}) (bool, error)
-	DelIEPub(channel, message, key string, data interface{}) (bool, error)
+	DelIEPub(channelsAndEvents []string, key string, data interface{}) (bool, error)
 	SAdd(key string, data ...interface{}) error
 	SRem(key string, data ...interface{}) error
 	SMembers(key string) ([]string, error)

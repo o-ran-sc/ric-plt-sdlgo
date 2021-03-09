@@ -102,8 +102,14 @@ func checkIntResultAndError(result interface{}, err error) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if result.(int) == int(1) {
-		return true, nil
+	if n, ok := result.(int64); ok {
+		if n == 1 {
+			return true, nil
+		}
+	} else if n, ok := result.(int); ok {
+		if n == 1 {
+			return true, nil
+		}
 	}
 	return false, nil
 }
@@ -301,28 +307,53 @@ func (db *DB) SetIE(key string, oldData, newData interface{}) (bool, error) {
 	return checkResultAndError(db.client.Do("SETIE", key, newData, oldData).Result())
 }
 
-func (db *DB) SetIEPub(channel, message, key string, oldData, newData interface{}) (bool, error) {
+func (db *DB) SetIEPub(channelsAndEvents []string, key string, oldData, newData interface{}) (bool, error) {
 	if !db.redisModules {
-		return false, errors.New("Redis deployment not supporting command SETIEPUB")
+		return false, errors.New("Redis deployment not supporting command SETIEMPUB")
 	}
-	return checkResultAndError(db.client.Do("SETIEPUB", key, newData, oldData, channel, message).Result())
+	capacity := 4 + len(channelsAndEvents)
+	command := make([]interface{}, 0, capacity)
+	command = append(command, "SETIEMPUB")
+	command = append(command, key)
+	command = append(command, newData)
+	command = append(command, oldData)
+	for _, ce := range channelsAndEvents {
+		command = append(command, ce)
+	}
+	return checkResultAndError(db.client.Do(command...).Result())
 }
 
-func (db *DB) SetNXPub(channel, message, key string, data interface{}) (bool, error) {
+func (db *DB) SetNXPub(channelsAndEvents []string, key string, data interface{}) (bool, error) {
 	if !db.redisModules {
-		return false, errors.New("Redis deployment not supporting command SETNXPUB")
+		return false, errors.New("Redis deployment not supporting command SETNXMPUB")
 	}
-	return checkResultAndError(db.client.Do("SETNXPUB", key, data, channel, message).Result())
+	capacity := 3 + len(channelsAndEvents)
+	command := make([]interface{}, 0, capacity)
+	command = append(command, "SETNXMPUB")
+	command = append(command, key)
+	command = append(command, data)
+	for _, ce := range channelsAndEvents {
+		command = append(command, ce)
+	}
+	return checkResultAndError(db.client.Do(command...).Result())
 }
 func (db *DB) SetNX(key string, data interface{}, expiration time.Duration) (bool, error) {
 	return db.client.SetNX(key, data, expiration).Result()
 }
 
-func (db *DB) DelIEPub(channel, message, key string, data interface{}) (bool, error) {
+func (db *DB) DelIEPub(channelsAndEvents []string, key string, data interface{}) (bool, error) {
 	if !db.redisModules {
-		return false, errors.New("Redis deployment not supporting command")
+		return false, errors.New("Redis deployment not supporting command DELIEMPUB")
 	}
-	return checkIntResultAndError(db.client.Do("DELIEPUB", key, data, channel, message).Result())
+	capacity := 3 + len(channelsAndEvents)
+	command := make([]interface{}, 0, capacity)
+	command = append(command, "DELIEMPUB")
+	command = append(command, key)
+	command = append(command, data)
+	for _, ce := range channelsAndEvents {
+		command = append(command, ce)
+	}
+	return checkIntResultAndError(db.client.Do(command...).Result())
 }
 
 func (db *DB) DelIE(key string, data interface{}) (bool, error) {

@@ -353,9 +353,9 @@ func TestSetIECommandMissing(t *testing.T) {
 
 func TestSetIEPubKeyExists(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"SETIEPUB", "key", "newdata", "olddata", "channel", "message"}
+	expectedMessage := []interface{}{"SETIEMPUB", "key", "newdata", "olddata", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("OK", nil))
-	result, err := db.SetIEPub("channel", "message", "key", "olddata", "newdata")
+	result, err := db.SetIEPub([]string{"channel", "message"}, "key", "olddata", "newdata")
 	assert.True(t, result)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -363,9 +363,9 @@ func TestSetIEPubKeyExists(t *testing.T) {
 
 func TestSetIEPubKeyDoesntExists(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"SETIEPUB", "key", "newdata", "olddata", "channel", "message"}
+	expectedMessage := []interface{}{"SETIEMPUB", "key", "newdata", "olddata", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, nil))
-	result, err := db.SetIEPub("channel", "message", "key", "olddata", "newdata")
+	result, err := db.SetIEPub([]string{"channel", "message"}, "key", "olddata", "newdata")
 	assert.False(t, result)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -373,9 +373,9 @@ func TestSetIEPubKeyDoesntExists(t *testing.T) {
 
 func TestSetIEPubFailure(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"SETIEPUB", "key", "newdata", "olddata", "channel", "message"}
+	expectedMessage := []interface{}{"SETIEMPUB", "key", "newdata", "olddata", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, errors.New("Some error")))
-	result, err := db.SetIEPub("channel", "message", "key", "olddata", "newdata")
+	result, err := db.SetIEPub([]string{"channel", "message"}, "key", "olddata", "newdata")
 	assert.False(t, result)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -383,9 +383,9 @@ func TestSetIEPubFailure(t *testing.T) {
 
 func TestSetIEPubCommandMissing(t *testing.T) {
 	_, r, db := setup(false)
-	expectedMessage := []interface{}{"SETIEPUB", "key", "newdata", "olddata", "channel", "message"}
+	expectedMessage := []interface{}{"SETIEMPUB", "key", "newdata", "olddata", "channel", "message"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
-	result, err := db.SetIEPub("channel", "message", "key", "olddata", "newdata")
+	result, err := db.SetIEPub([]string{"channel", "message"}, "key", "olddata", "newdata")
 	assert.False(t, result)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -393,9 +393,9 @@ func TestSetIEPubCommandMissing(t *testing.T) {
 
 func TestSetNXPubKeyDoesntExist(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"SETNXPUB", "key", "data", "channel", "message"}
+	expectedMessage := []interface{}{"SETNXMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("OK", nil))
-	result, err := db.SetNXPub("channel", "message", "key", "data")
+	result, err := db.SetNXPub([]string{"channel", "message"}, "key", "data")
 	assert.True(t, result)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -403,9 +403,9 @@ func TestSetNXPubKeyDoesntExist(t *testing.T) {
 
 func TestSetNXPubKeyExists(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"SETNXPUB", "key", "data", "channel", "message"}
+	expectedMessage := []interface{}{"SETNXMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, nil))
-	result, err := db.SetNXPub("channel", "message", "key", "data")
+	result, err := db.SetNXPub([]string{"channel", "message"}, "key", "data")
 	assert.False(t, result)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -413,9 +413,9 @@ func TestSetNXPubKeyExists(t *testing.T) {
 
 func TestSetNXPubFailure(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"SETNXPUB", "key", "data", "channel", "message"}
+	expectedMessage := []interface{}{"SETNXMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, errors.New("Some error")))
-	result, err := db.SetNXPub("channel", "message", "key", "data")
+	result, err := db.SetNXPub([]string{"channel", "message"}, "key", "data")
 	assert.False(t, result)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -423,9 +423,9 @@ func TestSetNXPubFailure(t *testing.T) {
 
 func TestSetNXPubCommandMissing(t *testing.T) {
 	_, r, db := setup(false)
-	expectedMessage := []interface{}{"SETNXPUB", "key", "data", "channel", "message"}
+	expectedMessage := []interface{}{"SETNXMPUB", "key", "data", "channel", "message"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
-	result, err := db.SetNXPub("channel", "message", "key", "data")
+	result, err := db.SetNXPub([]string{"channel", "message"}, "key", "data")
 	assert.False(t, result)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -467,9 +467,9 @@ func TestSetNXFailure(t *testing.T) {
 
 func TestDelIEPubKeyDoesntExist(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"DELIEPUB", "key", "data", "channel", "message"}
-	r.On("Do", expectedMessage).Return(redis.NewCmdResult(0, nil))
-	result, err := db.DelIEPub("channel", "message", "key", "data")
+	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
+	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(0), nil))
+	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
 	assert.False(t, result)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -477,9 +477,19 @@ func TestDelIEPubKeyDoesntExist(t *testing.T) {
 
 func TestDelIEPubKeyExists(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"DELIEPUB", "key", "data", "channel", "message"}
+	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
+	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(1), nil))
+	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
+	assert.True(t, result)
+	assert.Nil(t, err)
+	r.AssertExpectations(t)
+}
+
+func TestDelIEPubKeyExistsIntTypeRedisValue(t *testing.T) {
+	_, r, db := setup(true)
+	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(1, nil))
-	result, err := db.DelIEPub("channel", "message", "key", "data")
+	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
 	assert.True(t, result)
 	assert.Nil(t, err)
 	r.AssertExpectations(t)
@@ -487,9 +497,9 @@ func TestDelIEPubKeyExists(t *testing.T) {
 
 func TestDelIEPubFailure(t *testing.T) {
 	_, r, db := setup(true)
-	expectedMessage := []interface{}{"DELIEPUB", "key", "data", "channel", "message"}
-	r.On("Do", expectedMessage).Return(redis.NewCmdResult(0, errors.New("Some error")))
-	result, err := db.DelIEPub("channel", "message", "key", "data")
+	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
+	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(0), errors.New("Some error")))
+	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
 	assert.False(t, result)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -497,9 +507,9 @@ func TestDelIEPubFailure(t *testing.T) {
 
 func TestDelIEPubCommandMissing(t *testing.T) {
 	_, r, db := setup(false)
-	expectedMessage := []interface{}{"DELIEPUB", "key", "data", "channel", "message"}
+	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
-	result, err := db.DelIEPub("channel", "message", "key", "data")
+	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
 	assert.False(t, result)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
@@ -508,7 +518,7 @@ func TestDelIEPubCommandMissing(t *testing.T) {
 func TestDelIEKeyDoesntExist(t *testing.T) {
 	_, r, db := setup(true)
 	expectedMessage := []interface{}{"DELIE", "key", "data"}
-	r.On("Do", expectedMessage).Return(redis.NewCmdResult(0, nil))
+	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(0), nil))
 	result, err := db.DelIE("key", "data")
 	assert.False(t, result)
 	assert.Nil(t, err)
@@ -516,6 +526,16 @@ func TestDelIEKeyDoesntExist(t *testing.T) {
 }
 
 func TestDelIEKeyExists(t *testing.T) {
+	_, r, db := setup(true)
+	expectedMessage := []interface{}{"DELIE", "key", "data"}
+	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(1), nil))
+	result, err := db.DelIE("key", "data")
+	assert.True(t, result)
+	assert.Nil(t, err)
+	r.AssertExpectations(t)
+}
+
+func TestDelIEKeyExistsIntTypeRedisValue(t *testing.T) {
 	_, r, db := setup(true)
 	expectedMessage := []interface{}{"DELIE", "key", "data"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(1, nil))
@@ -528,7 +548,7 @@ func TestDelIEKeyExists(t *testing.T) {
 func TestDelIEFailure(t *testing.T) {
 	_, r, db := setup(true)
 	expectedMessage := []interface{}{"DELIE", "key", "data"}
-	r.On("Do", expectedMessage).Return(redis.NewCmdResult(0, errors.New("Some error")))
+	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(0), errors.New("Some error")))
 	result, err := db.DelIE("key", "data")
 	assert.False(t, result)
 	assert.NotNil(t, err)

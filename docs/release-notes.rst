@@ -30,6 +30,12 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.5.5] - 2021-03-09
+
+* Take DBAAS multi-channel publishing Redis modules into use.
+* Fix potential type conversion crash in RemoveIf() and
+  RemoveIfAndPublish() APIs.
+
 [0.5.4] - 2020-10-07
 
 * Fix Go routine race condition when new DB notifications are subscribed.

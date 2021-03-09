@@ -85,8 +85,8 @@ func (m *mockDB) SetIE(key string, oldData, newData interface{}) (bool, error) {
 	return a.Bool(0), a.Error(1)
 }
 
-func (m *mockDB) SetIEPub(channel, message, key string, oldData, newData interface{}) (bool, error) {
-	a := m.Called(channel, message, key, oldData, newData)
+func (m *mockDB) SetIEPub(channelsAndEvents []string, key string, oldData, newData interface{}) (bool, error) {
+	a := m.Called(channelsAndEvents, key, oldData, newData)
 	return a.Bool(0), a.Error(1)
 }
 
@@ -95,8 +95,8 @@ func (m *mockDB) SetNX(key string, data interface{}, expiration time.Duration) (
 	return a.Bool(0), a.Error(1)
 }
 
-func (m *mockDB) SetNXPub(channel, message, key string, data interface{}) (bool, error) {
-	a := m.Called(channel, message, key, data)
+func (m *mockDB) SetNXPub(channelsAndEvents []string, key string, data interface{}) (bool, error) {
+	a := m.Called(channelsAndEvents, key, data)
 	return a.Bool(0), a.Error(1)
 }
 
@@ -105,8 +105,8 @@ func (m *mockDB) DelIE(key string, data interface{}) (bool, error) {
 	return a.Bool(0), a.Error(1)
 }
 
-func (m *mockDB) DelIEPub(channel, message, key string, data interface{}) (bool, error) {
-	a := m.Called(channel, message, key, data)
+func (m *mockDB) DelIEPub(channelsAndEvents []string, key string, data interface{}) (bool, error) {
+	a := m.Called(channelsAndEvents, key, data)
 	return a.Bool(0), a.Error(1)
 }
 
@@ -780,12 +780,11 @@ func TestSetIfFailure(t *testing.T) {
 func TestSetIfAndPublishSuccessfully(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKey := "{namespace},key"
 	expectedOldData := interface{}("olddata")
 	expectedNewData := interface{}("newdata")
-	m.On("SetIEPub", expectedChannel, expectedEvent, expectedKey, expectedOldData, expectedNewData).Return(true, nil)
+	m.On("SetIEPub", expectedChannelAndEvent, expectedKey, expectedOldData, expectedNewData).Return(true, nil)
 	status, err := i.SetIfAndPublish([]string{"channel", "event"}, "key", "olddata", "newdata")
 	assert.Nil(t, err)
 	assert.True(t, status)
@@ -795,12 +794,11 @@ func TestSetIfAndPublishSuccessfully(t *testing.T) {
 func TestSetIfAndPublishIncorrectChannelAndEvent(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKey := "{namespace},key"
 	expectedOldData := interface{}("olddata")
 	expectedNewData := interface{}("newdata")
-	m.AssertNotCalled(t, "SetIEPub", expectedChannel, expectedEvent, expectedKey, expectedOldData, expectedNewData)
+	m.AssertNotCalled(t, "SetIEPub", expectedChannelAndEvent, expectedKey, expectedOldData, expectedNewData)
 	m.AssertNotCalled(t, "SetIE", expectedKey, expectedOldData, expectedNewData)
 	status, err := i.SetIfAndPublish([]string{"channel", "event1", "channel"}, "key", "olddata", "newdata")
 	assert.NotNil(t, err)
@@ -810,12 +808,11 @@ func TestSetIfAndPublishIncorrectChannelAndEvent(t *testing.T) {
 func TestSetIfAndPublishNOKStatus(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKey := "{namespace},key"
 	expectedOldData := interface{}("olddata")
 	expectedNewData := interface{}("newdata")
-	m.On("SetIEPub", expectedChannel, expectedEvent, expectedKey, expectedOldData, expectedNewData).Return(false, nil)
+	m.On("SetIEPub", expectedChannelAndEvent, expectedKey, expectedOldData, expectedNewData).Return(false, nil)
 	status, err := i.SetIfAndPublish([]string{"channel", "event"}, "key", "olddata", "newdata")
 	assert.Nil(t, err)
 	assert.False(t, status)
@@ -838,12 +835,11 @@ func TestSetIfAndPublishNoChannels(t *testing.T) {
 func TestSetIfNotExistsAndPublishSuccessfully(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKey := "{namespace},key"
 	expectedData := interface{}("data")
 
-	m.On("SetNXPub", expectedChannel, expectedEvent, expectedKey, expectedData).Return(true, nil)
+	m.On("SetNXPub", expectedChannelAndEvent, expectedKey, expectedData).Return(true, nil)
 	status, err := i.SetIfNotExistsAndPublish([]string{"channel", "event"}, "key", "data")
 	assert.Nil(t, err)
 	assert.True(t, status)
@@ -853,12 +849,11 @@ func TestSetIfNotExistsAndPublishSuccessfully(t *testing.T) {
 func TestSetIfNotExistsAndPublishSeveralEvents(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event1___event2"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event1___event2"}
 	expectedKey := "{namespace},key"
 	expectedData := interface{}("data")
 
-	m.On("SetNXPub", expectedChannel, expectedEvent, expectedKey, expectedData).Return(true, nil)
+	m.On("SetNXPub", expectedChannelAndEvent, expectedKey, expectedData).Return(true, nil)
 	status, err := i.SetIfNotExistsAndPublish([]string{"channel", "event1", "channel", "event2"}, "key", "data")
 	assert.Nil(t, err)
 	assert.True(t, status)
@@ -881,12 +876,11 @@ func TestSetIfNotExistsAndPublishNoChannels(t *testing.T) {
 func TestSetIfNotExistsAndPublishFail(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKey := "{namespace},key"
 	expectedData := interface{}("data")
 
-	m.On("SetNXPub", expectedChannel, expectedEvent, expectedKey, expectedData).Return(false, nil)
+	m.On("SetNXPub", expectedChannelAndEvent, expectedKey, expectedData).Return(false, nil)
 	status, err := i.SetIfNotExistsAndPublish([]string{"channel", "event"}, "key", "data")
 	assert.Nil(t, err)
 	assert.False(t, status)
@@ -896,12 +890,11 @@ func TestSetIfNotExistsAndPublishFail(t *testing.T) {
 func TestSetIfNotExistsAndPublishIncorrectChannels(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKey := "{namespace},key"
 	expectedData := interface{}("data")
 
-	m.AssertNotCalled(t, "SetNXPub", expectedChannel, expectedEvent, expectedKey, expectedData)
+	m.AssertNotCalled(t, "SetNXPub", expectedChannelAndEvent, expectedKey, expectedData)
 	m.AssertNotCalled(t, "SetNX", expectedKey, expectedData, 0)
 	status, err := i.SetIfNotExistsAndPublish([]string{"channel", "event", "channel2"}, "key", "data")
 	assert.NotNil(t, err)
@@ -912,12 +905,11 @@ func TestSetIfNotExistsAndPublishIncorrectChannels(t *testing.T) {
 func TestSetIfNotExistsAndPublishError(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKey := "{namespace},key"
 	expectedData := interface{}("data")
 
-	m.On("SetNXPub", expectedChannel, expectedEvent, expectedKey, expectedData).Return(false, errors.New("Some error"))
+	m.On("SetNXPub", expectedChannelAndEvent, expectedKey, expectedData).Return(false, errors.New("Some error"))
 	status, err := i.SetIfNotExistsAndPublish([]string{"channel", "event"}, "key", "data")
 	assert.NotNil(t, err)
 	assert.False(t, status)
@@ -963,12 +955,11 @@ func TestSetIfNotExistsFailure(t *testing.T) {
 func TestRemoveIfAndPublishSuccessfully(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event1___event2"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event1___event2"}
 	expectedKey := "{namespace},key"
 	expectedValue := interface{}("data")
 
-	m.On("DelIEPub", expectedChannel, expectedEvent, expectedKey, expectedValue).Return(true, nil)
+	m.On("DelIEPub", expectedChannelAndEvent, expectedKey, expectedValue).Return(true, nil)
 	status, err := i.RemoveIfAndPublish([]string{"channel", "event1", "channel", "event2"}, "key", "data")
 	assert.Nil(t, err)
 	assert.True(t, status)
@@ -978,12 +969,11 @@ func TestRemoveIfAndPublishSuccessfully(t *testing.T) {
 func TestRemoveIfAndPublishNok(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event1___event2"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event1___event2"}
 	expectedKey := "{namespace},key"
 	expectedValue := interface{}("data")
 
-	m.On("DelIEPub", expectedChannel, expectedEvent, expectedKey, expectedValue).Return(false, nil)
+	m.On("DelIEPub", expectedChannelAndEvent, expectedKey, expectedValue).Return(false, nil)
 	status, err := i.RemoveIfAndPublish([]string{"channel", "event1", "channel", "event2"}, "key", "data")
 	assert.Nil(t, err)
 	assert.False(t, status)
@@ -993,12 +983,11 @@ func TestRemoveIfAndPublishNok(t *testing.T) {
 func TestRemoveIfAndPublishError(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event1___event2"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event1___event2"}
 	expectedKey := "{namespace},key"
 	expectedValue := interface{}("data")
 
-	m.On("DelIEPub", expectedChannel, expectedEvent, expectedKey, expectedValue).Return(false, errors.New("Some error"))
+	m.On("DelIEPub", expectedChannelAndEvent, expectedKey, expectedValue).Return(false, errors.New("Some error"))
 	status, err := i.RemoveIfAndPublish([]string{"channel", "event1", "channel", "event2"}, "key", "data")
 	assert.NotNil(t, err)
 	assert.False(t, status)
@@ -1008,12 +997,11 @@ func TestRemoveIfAndPublishError(t *testing.T) {
 func TestRemoveIfAndPublishIncorrectChannel(t *testing.T) {
 	m, i := setup()
 
-	expectedChannel := "{namespace},channel"
-	expectedEvent := "event"
+	expectedChannelAndEvent := []string{"{namespace},channel", "event"}
 	expectedKey := "{namespace},key"
 	expectedValue := interface{}("data")
 
-	m.AssertNotCalled(t, "DelIEPub", expectedChannel, expectedEvent, expectedKey, expectedValue)
+	m.AssertNotCalled(t, "DelIEPub", expectedChannelAndEvent, expectedKey, expectedValue)
 	m.AssertNotCalled(t, "DelIE", expectedKey, expectedValue)
 	status, err := i.RemoveIfAndPublish([]string{"channel", "event1", "channel"}, "key", "data")
 	assert.NotNil(t, err)
