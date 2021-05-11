@@ -31,99 +31,100 @@ import (
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
 )
 
-type singleBenchmark struct {
-	key       string
-	keySize   int
-	valueSize int
-}
-
-type multiBenchmark struct {
-	keyBase   string
+type nsKeysBenchmark struct {
+	ns        string
+	nsCount   int
+	keyName   string
 	keyCount  int
 	keySize   int
 	valueSize int
 }
 
-type setBenchmark struct {
+type keysBenchmark struct {
+	keyName   string
+	keyCount  int
+	keySize   int
+	valueSize int
+}
+
+type groupBenchmark struct {
 	key         string
 	member      string
 	memberCount int
 }
 
-func (bm singleBenchmark) String(oper string) string {
-	return fmt.Sprintf("op = %s key=%d value=%d", oper, bm.keySize, bm.valueSize)
+func (bm nsKeysBenchmark) String(oper string) string {
+	return fmt.Sprintf("op=%s ns-cnt=%d key-cnt=%d key-sz=%d value-sz=%d",
+		oper, bm.nsCount, bm.keyCount, bm.keySize, bm.valueSize)
 }
 
-func (bm multiBenchmark) String(oper string) string {
-	return fmt.Sprintf("op = %s keycnt=%d key=%d value=%d", oper, bm.keyCount, bm.keySize, bm.valueSize)
+func (bm keysBenchmark) String(oper string) string {
+	return fmt.Sprintf("op=%s key-cnt=%d key-sz=%d value-sz=%d",
+		oper, bm.keyCount, bm.keySize, bm.valueSize)
 }
 
-func (bm setBenchmark) String(oper string) string {
-	return fmt.Sprintf("op = %s, memberCount=%d", oper, bm.memberCount)
+func (bm groupBenchmark) String(oper string) string {
+	return fmt.Sprintf("op=%s, mbr-cnt=%d", oper, bm.memberCount)
 }
-func BenchmarkSet(b *testing.B) {
-	benchmarks := []singleBenchmark{
-		{"a", 10, 64},
-		{"b", 10, 1024},
-		{"c", 10, 64 * 1024},
-		{"d", 10, 1024 * 1024},
-		{"e", 10, 10 * 1024 * 1024},
 
-		{"f", 100, 64},
-		{"g", 100, 1024},
-		{"h", 100, 64 * 1024},
-		{"i", 100, 1024 * 1024},
-		{"j", 100, 10 * 1024 * 1024},
+func getNsKeyBenchmarkInput() []nsKeysBenchmark {
+	return []nsKeysBenchmark{
+		{"ns-a", 1, "a", 100, 10, 64},
+		{"ns-b", 10, "b", 100, 10, 64},
+		{"ns-c", 100, "c", 100, 10, 64},
+		{"ns-d", 1000, "d", 100, 10, 64},
+		{"ns-e", 10000, "e", 100, 10, 64},
 	}
+}
+
+func getKeyBenchmarkInput() []keysBenchmark {
+	return []keysBenchmark{
+		{"a", 1, 10, 64},
+		{"b", 1, 10, 1024},
+		{"c", 1, 10, 64 * 1024},
+		{"d", 1, 10, 1024 * 1024},
+		{"e", 1, 10, 10 * 1024 * 1024},
+
+		{"f", 1, 100, 64},
+		{"g", 1, 100, 1024},
+		{"h", 1, 100, 64 * 1024},
+		{"i", 1, 100, 1024 * 1024},
+		{"j", 1, 100, 10 * 1024 * 1024},
+
+		{"k", 2, 10, 64},
+		{"l", 10, 10, 64},
+		{"m", 100, 10, 64},
+		{"n", 1000, 10, 64},
+		{"r", 5000, 10, 64},
+
+		{"s", 2, 100, 64},
+		{"t", 10, 100, 64},
+		{"u", 100, 100, 64},
+		{"v", 1000, 100, 64},
+		{"x", 5000, 100, 64},
+	}
+}
+
+func BenchmarkMultiNamespaceKeysWrite(b *testing.B) {
+	benchmarks := getNsKeyBenchmarkInput()
 
 	for _, bm := range benchmarks {
-		b.Run(bm.String("set"), func(b *testing.B) {
-			key := strings.Repeat(bm.key, bm.keySize)
+		b.Run(bm.String("ns-keys-set"), func(b *testing.B) {
+			sdl := sdlgo.NewSyncStorage()
 			value := strings.Repeat("1", bm.valueSize)
-			sdl := sdlgo.NewSdlInstance("namespace", sdlgo.NewDatabase())
-
-			b.ResetTimer()
-			b.RunParallel(func(pb *testing.PB) {
-				for pb.Next() {
-					err := sdl.Set(key, value)
-					if err != nil {
-						b.Fatal(err)
-					}
-				}
-			})
-		})
-	}
-}
-
-func BenchmarkGet(b *testing.B) {
-	benchmarks := []singleBenchmark{
-		{"a", 10, 64},
-		{"b", 10, 1024},
-		{"c", 10, 64 * 1024},
-		{"d", 10, 1024 * 1024},
-		{"e", 10, 10 * 1024 * 1024},
-
-		{"f", 100, 64},
-		{"g", 100, 1024},
-		{"h", 100, 64 * 1024},
-		{"i", 100, 1024 * 1024},
-		{"j", 100, 10 * 1024 * 1024},
-	}
-
-	for _, bm := range benchmarks {
-		b.Run(bm.String("Get"), func(b *testing.B) {
-			key := strings.Repeat(bm.key, bm.keySize)
-			value := strings.Repeat("1", bm.valueSize)
-			sdl := sdlgo.NewSdlInstance("namespace", sdlgo.NewDatabase())
-			if err := sdl.Set(key, value); err != nil {
-				b.Fatal(err)
+			keyVals := make([]string, 0)
+			for i := 0; i < bm.keyCount; i++ {
+				key := strings.Repeat(bm.keyName+strconv.Itoa(i), bm.keySize)
+				keyVals = append(keyVals, key, value)
 			}
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-					_, err := sdl.Get([]string{key})
-					if err != nil {
-						b.Fatal(err)
+					for n := 0; n < bm.nsCount; n++ {
+						err := sdl.Set(bm.ns+strconv.Itoa(n), keyVals)
+						if err != nil {
+							b.Fatal(err)
+						}
 					}
 				}
 			})
@@ -131,28 +132,42 @@ func BenchmarkGet(b *testing.B) {
 	}
 }
 
-func BenchmarkMultiSet(b *testing.B) {
-	benchmarks := []multiBenchmark{
-		{"a", 2, 10, 64},
-		{"b", 10, 10, 64},
-		{"c", 100, 10, 64},
-		{"d", 1000, 10, 64},
-		{"e", 5000, 10, 64},
-
-		{"f", 2, 100, 64},
-		{"g", 10, 100, 64},
-		{"h", 100, 100, 64},
-		{"i", 1000, 100, 64},
-		{"j", 5000, 100, 64},
-	}
+func BenchmarkMultiNamespaceKeysRead(b *testing.B) {
+	benchmarks := getNsKeyBenchmarkInput()
 
 	for _, bm := range benchmarks {
-		b.Run(bm.String("mset"), func(b *testing.B) {
+		b.Run(bm.String("keys-get"), func(b *testing.B) {
+			sdl := sdlgo.NewSyncStorage()
+			keys := make([]string, 0)
+			for i := 0; i < bm.keyCount; i++ {
+				key := strings.Repeat(bm.keyName+strconv.Itoa(i), bm.keySize)
+				keys = append(keys, key)
+			}
+			b.ResetTimer()
+			b.RunParallel(func(pb *testing.PB) {
+				for pb.Next() {
+					for n := 0; n < bm.nsCount; n++ {
+						_, err := sdl.Get(bm.ns+strconv.Itoa(n), keys)
+						if err != nil {
+							b.Fatal(err)
+						}
+					}
+				}
+			})
+		})
+	}
+}
+
+func BenchmarkKeysWrite(b *testing.B) {
+	benchmarks := getKeyBenchmarkInput()
+
+	for _, bm := range benchmarks {
+		b.Run(bm.String("keys-set"), func(b *testing.B) {
 			sdl := sdlgo.NewSdlInstance("namespace", sdlgo.NewDatabase())
 			value := strings.Repeat("1", bm.valueSize)
 			keyVals := make([]string, 0)
 			for i := 0; i < bm.keyCount; i++ {
-				key := strings.Repeat(bm.keyBase+strconv.Itoa(i), bm.keySize)
+				key := strings.Repeat(bm.keyName+strconv.Itoa(i), bm.keySize)
 				keyVals = append(keyVals, key, value)
 			}
 			b.ResetTimer()
@@ -168,33 +183,21 @@ func BenchmarkMultiSet(b *testing.B) {
 	}
 }
 
-func BenchmarkMultiGet(b *testing.B) {
-	benchmarks := []multiBenchmark{
-		{"a", 2, 10, 64},
-		{"b", 10, 10, 64},
-		{"c", 100, 10, 64},
-		{"d", 1000, 10, 64},
-		{"e", 5000, 10, 64},
-
-		{"f", 2, 100, 64},
-		{"g", 10, 100, 64},
-		{"h", 100, 100, 64},
-		{"i", 1000, 100, 64},
-		{"j", 5000, 100, 64},
-	}
+func BenchmarkKeysRead(b *testing.B) {
+	benchmarks := getKeyBenchmarkInput()
 
 	for _, bm := range benchmarks {
-		b.Run(bm.String("gset"), func(b *testing.B) {
+		b.Run(bm.String("keys-get"), func(b *testing.B) {
 			sdl := sdlgo.NewSdlInstance("namespace", sdlgo.NewDatabase())
-			keyVals := make([]string, 0)
+			keys := make([]string, 0)
 			for i := 0; i < bm.keyCount; i++ {
-				key := strings.Repeat(bm.keyBase+strconv.Itoa(i), bm.keySize)
-				keyVals = append(keyVals, key)
+				key := strings.Repeat(bm.keyName+strconv.Itoa(i), bm.keySize)
+				keys = append(keys, key)
 			}
 			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-					_, err := sdl.Get(keyVals)
+					_, err := sdl.Get(keys)
 					if err != nil {
 						b.Fatal(err)
 					}
@@ -204,8 +207,8 @@ func BenchmarkMultiGet(b *testing.B) {
 	}
 }
 
-func BenchmarkSetAddMember(b *testing.B) {
-	benchmarks := []setBenchmark{
+func BenchmarkGroupMemberAdd(b *testing.B) {
+	benchmarks := []groupBenchmark{
 		{"a", "x", 1},
 		{"b", "x", 100},
 		{"c", "x", 10000},
@@ -213,7 +216,7 @@ func BenchmarkSetAddMember(b *testing.B) {
 	}
 
 	for _, bm := range benchmarks {
-		b.Run(bm.String("AddMember"), func(b *testing.B) {
+		b.Run(bm.String("group-add-member"), func(b *testing.B) {
 			sdl := sdlgo.NewSdlInstance("namespace", sdlgo.NewDatabase())
 			members := make([]string, 0)
 			for i := 0; i < bm.memberCount; i++ {

@@ -30,6 +30,10 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.6.0] - 2021-05-11
+
+* Add SDL multi-namespace API 'SyncStorage'.
+
 [0.5.5] - 2021-03-09
 
 * Take DBAAS multi-channel publishing Redis modules into use.

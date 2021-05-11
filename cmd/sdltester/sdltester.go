@@ -65,7 +65,7 @@ import (
  */
 
 func main() {
-	sdl := sdlgo.NewSdlInstance("tag1", sdlgo.NewDatabase())
+	sdl := sdlgo.NewSyncStorage()
 
 	if len(os.Args) > 1 {
 		switch command := os.Args[1]; command {
@@ -125,11 +125,11 @@ func printHelp() {
 	fmt.Println("             is measured")
 }
 
-func write(sdl *sdlgo.SdlInstance) {
+func write(sdl *sdlgo.SyncStorage) {
 	data := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00,
 		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22, 0x33, 0x44}
 	start := time.Now()
-	err := sdl.Set("key1", data)
+	err := sdl.Set("tag1", "key1", data)
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Write: %s\n", elapsed)
@@ -138,10 +138,10 @@ func write(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func read(sdl *sdlgo.SdlInstance) {
+func read(sdl *sdlgo.SyncStorage) {
 	k := []string{"key1"}
 	start := time.Now()
-	data, err := sdl.Get(k)
+	data, err := sdl.Get("tag1", k)
 	elapsed := time.Since(start)
 	if err == nil {
 		value, ok := data["key1"]
@@ -156,10 +156,10 @@ func read(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func remove(sdl *sdlgo.SdlInstance) {
+func remove(sdl *sdlgo.SyncStorage) {
 	k := []string{"key1"}
 	start := time.Now()
-	err := sdl.Remove(k)
+	err := sdl.Remove("tag1", k)
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Remove: %s\n", elapsed)
@@ -168,9 +168,9 @@ func remove(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func noexist(sdl *sdlgo.SdlInstance) {
+func noexist(sdl *sdlgo.SyncStorage) {
 	start := time.Now()
-	_, err := sdl.Get([]string{"no1", "no2"})
+	_, err := sdl.Get("tag1", []string{"no1", "no2"})
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Noexist: %s\n", elapsed)
@@ -179,9 +179,9 @@ func noexist(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func getall(sdl *sdlgo.SdlInstance) {
+func getall(sdl *sdlgo.SyncStorage) {
 	start := time.Now()
-	keys, err := sdl.GetAll()
+	keys, err := sdl.GetAll("tag1")
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Getall: %s\n", elapsed)
@@ -193,9 +193,9 @@ func getall(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func removeall(sdl *sdlgo.SdlInstance) {
+func removeall(sdl *sdlgo.SyncStorage) {
 	start := time.Now()
-	err := sdl.RemoveAll()
+	err := sdl.RemoveAll("tag1")
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Removeall: %s\n", elapsed)
@@ -204,9 +204,9 @@ func removeall(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func emptymap(sdl *sdlgo.SdlInstance) {
+func emptymap(sdl *sdlgo.SyncStorage) {
 	start := time.Now()
-	err := sdl.Set("", "")
+	err := sdl.Set("tag1", "", "")
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Emptymap: %s\n", elapsed)
@@ -215,11 +215,11 @@ func emptymap(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func multiple(sdl *sdlgo.SdlInstance) {
+func multiple(sdl *sdlgo.SyncStorage) {
 	data := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00,
 		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22, 0x33, 0x44}
 	start := time.Now()
-	err := sdl.Set("key1m", data)
+	err := sdl.Set("tag1", "key1m", data)
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Multiple: %s ", elapsed)
@@ -227,7 +227,7 @@ func multiple(sdl *sdlgo.SdlInstance) {
 		fmt.Println(err)
 	}
 	start = time.Now()
-	err = sdl.Set("key2m", data)
+	err = sdl.Set("tag1", "key2m", data)
 	elapsed = time.Since(start)
 	if err == nil {
 		fmt.Printf(" %s \n", elapsed)
@@ -236,10 +236,10 @@ func multiple(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func emptydata(sdl *sdlgo.SdlInstance) {
+func emptydata(sdl *sdlgo.SyncStorage) {
 	data := []byte{}
 	start := time.Now()
-	err := sdl.Set("key1", data)
+	err := sdl.Set("tag1", "key1", data)
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Emptydata: %s\n", elapsed)
@@ -248,13 +248,13 @@ func emptydata(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func writeif(sdl *sdlgo.SdlInstance) {
+func writeif(sdl *sdlgo.SyncStorage) {
 	oldVec := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00,
 		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22, 0x33, 0x44}
 	newVec := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00,
 		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22, 0x33, 0x66}
 	start := time.Now()
-	_, err := sdl.SetIf("key1", oldVec, newVec)
+	_, err := sdl.SetIf("tag1", "key1", oldVec, newVec)
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Writeif: %s\n", elapsed)
@@ -263,11 +263,11 @@ func writeif(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func writeifnot(sdl *sdlgo.SdlInstance) {
+func writeifnot(sdl *sdlgo.SyncStorage) {
 	vec := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00,
 		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22, 0x33, 0x88}
 	start := time.Now()
-	_, err := sdl.SetIfNotExists("key1", vec)
+	_, err := sdl.SetIfNotExists("tag1", "key1", vec)
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Writeifnot: %s\n", elapsed)
@@ -276,11 +276,11 @@ func writeifnot(sdl *sdlgo.SdlInstance) {
 	}
 }
 
-func removeif(sdl *sdlgo.SdlInstance) {
+func removeif(sdl *sdlgo.SyncStorage) {
 	vec := []byte{0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0x00,
 		0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x11, 0x22, 0x33, 0x88}
 	start := time.Now()
-	_, err := sdl.RemoveIf("key1", vec)
+	_, err := sdl.RemoveIf("tag1", "key1", vec)
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Removeif: %s\n", elapsed)

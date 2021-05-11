@@ -169,6 +169,24 @@ func verifySliceInOrder(a, b []string) bool {
 
 }
 
+func TestClose(t *testing.T) {
+	m, i := setup()
+
+	m.On("CloseDB").Return(nil)
+	err := i.Close()
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestCloseReturnError(t *testing.T) {
+	m, i := setup()
+
+	m.On("CloseDB").Return(errors.New("Some error"))
+	err := i.Close()
+	assert.NotNil(t, err)
+	m.AssertExpectations(t)
+}
+
 func TestSubscribeChannel(t *testing.T) {
 	m, i := setup()
 
@@ -591,8 +609,8 @@ func TestRemoveAndPublishIncorrectChannel(t *testing.T) {
 
 	m.AssertNotCalled(t, "DelMPub", notExpectedChannelAndEvent, notExpectedKeys)
 	m.AssertNotCalled(t, "Del", notExpectedKeys)
-	err := i.RemoveAndPublish([]string{"channel", "event", "channel2"}, []string{})
-	assert.Nil(t, err)
+	err := i.RemoveAndPublish([]string{"channel", "event", "channel2"}, []string{"key1", "key2"})
+	assert.NotNil(t, err)
 	m.AssertExpectations(t)
 
 }

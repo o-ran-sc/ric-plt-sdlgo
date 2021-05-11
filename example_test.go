@@ -28,14 +28,14 @@ import (
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
 )
 
-var sdl *sdlgo.SdlInstance
+var sdl *sdlgo.SyncStorage
 
 func init() {
-	sdl = sdlgo.NewSdlInstance("namespace", sdlgo.NewDatabase())
+	sdl = sdlgo.NewSyncStorage()
 }
 
 func ExampleSdlInstance_Set() {
-	err := sdl.Set("stringdata", "data", "intdata", 42)
+	err := sdl.Set("namespace", "stringdata", "data", "intdata", 42)
 	if err != nil {
 		panic(err)
 	} else {
@@ -45,7 +45,7 @@ func ExampleSdlInstance_Set() {
 }
 
 func ExampleSdlInstance_Get() {
-	retMap, err := sdl.Get([]string{"stringdata", "intdata"})
+	retMap, err := sdl.Get("namespace", []string{"stringdata", "intdata"})
 	if err != nil {
 		panic(err)
 	} else {
