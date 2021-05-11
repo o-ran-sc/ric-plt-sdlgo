@@ -25,9 +25,12 @@ package sdlgo
 //NewSdlInstanceForTest is used in unit tests only in order to replace the
 //underlying redis implementation with mock
 func NewSdlInstanceForTest(NameSpace string, instance iDatabase) *SdlInstance {
+	db := &Database{}
+	db.instances = append(db.instances, instance)
+
 	return &SdlInstance{
 		nameSpace: NameSpace,
 		nsPrefix:  "{" + NameSpace + "},",
-		storage:   newSyncStorage(&Database{instance: instance}),
+		storage:   newSyncStorage(db),
 	}
 }

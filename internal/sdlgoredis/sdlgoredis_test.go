@@ -42,6 +42,10 @@ type pubSubMock struct {
 	mock.Mock
 }
 
+type MockOS struct {
+	mock.Mock
+}
+
 func (m *pubSubMock) Channel() <-chan *redis.Message {
 	return m.Called().Get(0).(chan *redis.Message)
 }
@@ -141,6 +145,11 @@ func setSubscribeNotifications() (*pubSubMock, sdlgoredis.SubscribeFn) {
 	}
 }
 
+func (m *MockOS) Getenv(key string, defValue string) string {
+	a := m.Called(key, defValue)
+	return a.String(0)
+}
+
 func setup(commandsExists bool) (*pubSubMock, *clientMock, *sdlgoredis.DB) {
 	mock := new(clientMock)
 	pubSubMock, subscribeNotifications := setSubscribeNotifications()
@@ -169,6 +178,54 @@ func setup(commandsExists bool) (*pubSubMock, *clientMock, *sdlgoredis.DB) {
 	mock.On("Command").Return(redis.NewCommandsInfoCmdResult(cmdResult, nil))
 	db.CheckCommands()
 	return pubSubMock, mock, db
+}
+
+func setupEnv(host, port, msname, sntport, clsaddrlist string) ([]*clientMock, []*sdlgoredis.DB) {
+	var clmocks []*clientMock
+
+	dummyCommandInfo := redis.CommandInfo{
+		Name: "dummy",
+	}
+	cmdResult := make(map[string]*redis.CommandInfo, 0)
+
+	cmdResult = map[string]*redis.CommandInfo{
+		"dummy": &dummyCommandInfo,
+	}
+
+	osmock := new(MockOS)
+	osmock.On("Getenv", "DBAAS_SERVICE_HOST", "localhost").Return(host)
+	osmock.On("Getenv", "DBAAS_SERVICE_PORT", "6379").Return(port)
+	osmock.On("Getenv", "DBAAS_MASTER_NAME", "").Return(msname)
+	osmock.On("Getenv", "DBAAS_SERVICE_SENTINEL_PORT", "").Return(sntport)
+	osmock.On("Getenv", "DBAAS_CLUSTER_ADDR_LIST", "").Return(clsaddrlist)
+
+	clients := sdlgoredis.ReadConfigAndCreateDbClients(
+		osmock,
+		func(addr, port, clusterName string, isHa bool) sdlgoredis.RedisClient {
+			clm := new(clientMock)
+			clm.On("Command").Return(redis.NewCommandsInfoCmdResult(cmdResult, nil))
+			clmocks = append(clmocks, clm)
+			return clm
+		},
+	)
+
+	return clmocks, clients
+}
+
+func TestCloseDbSuccessfully(t *testing.T) {
+	_, r, db := setup(true)
+	r.On("Close").Return(nil)
+	err := db.CloseDB()
+	assert.Nil(t, err)
+	r.AssertExpectations(t)
+}
+
+func TestCloseDbFailure(t *testing.T) {
+	_, r, db := setup(true)
+	r.On("Close").Return(errors.New("Some error"))
+	err := db.CloseDB()
+	assert.NotNil(t, err)
+	r.AssertExpectations(t)
 }
 
 func TestMSetSuccessfully(t *testing.T) {
@@ -847,4 +904,76 @@ func TestPExpireIELockNotHeld(t *testing.T) {
 	err := db.PExpireIE("key", "data", 10*time.Second)
 	assert.NotNil(t, err)
 	r.AssertExpectations(t)
+}
+
+func TestClientStandaloneRedisLegacyEnv(t *testing.T) {
+	rcls, dbs := setupEnv(
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "", "", "",
+	)
+	assert.Equal(t, 1, len(rcls))
+	assert.Equal(t, 1, len(dbs))
+
+	expectedKeysAndValues := []interface{}{"key1", "value1"}
+	rcls[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err := dbs[0].MSet("key1", "value1")
+	assert.Nil(t, err)
+	rcls[0].AssertExpectations(t)
+}
+
+func TestClientSentinelRedisLegacyEnv(t *testing.T) {
+	rcls, dbs := setupEnv(
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "dbaasmaster", "26376", "",
+	)
+	assert.Equal(t, 1, len(rcls))
+	assert.Equal(t, 1, len(dbs))
+
+	expectedKeysAndValues := []interface{}{"key1", "value1"}
+	rcls[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err := dbs[0].MSet("key1", "value1")
+	assert.Nil(t, err)
+	rcls[0].AssertExpectations(t)
+}
+
+func TestClientTwoStandaloneRedisEnvs(t *testing.T) {
+	rcls, dbs := setupEnv(
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "", "",
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt",
+	)
+	assert.Equal(t, 2, len(rcls))
+	assert.Equal(t, 2, len(dbs))
+
+	expectedKeysAndValues := []interface{}{"key1", "value1"}
+	rcls[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err := dbs[0].MSet("key1", "value1")
+	assert.Nil(t, err)
+	rcls[0].AssertExpectations(t)
+
+	expectedKeysAndValues = []interface{}{"key2", "value2"}
+	rcls[1].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err = dbs[1].MSet("key2", "value2")
+	assert.Nil(t, err)
+	rcls[0].AssertExpectations(t)
+	rcls[1].AssertExpectations(t)
+}
+
+func TestClientTwoSentinelRedisEnvs(t *testing.T) {
+	rcls, dbs := setupEnv(
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "dbaasmaster", "26376",
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt",
+	)
+	assert.Equal(t, 2, len(rcls))
+	assert.Equal(t, 2, len(dbs))
+
+	expectedKeysAndValues := []interface{}{"key1", "value1"}
+	rcls[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err := dbs[0].MSet("key1", "value1")
+	assert.Nil(t, err)
+	rcls[0].AssertExpectations(t)
+
+	expectedKeysAndValues = []interface{}{"key2", "value2"}
+	rcls[1].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err = dbs[1].MSet("key2", "value2")
+	assert.Nil(t, err)
+	rcls[0].AssertExpectations(t)
+	rcls[1].AssertExpectations(t)
 }

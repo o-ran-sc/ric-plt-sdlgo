@@ -23,9 +23,8 @@
 package sdlgo
 
 import (
-	"time"
-
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+	"time"
 )
 
 //SdlInstance provides an API to read, write and modify
@@ -40,7 +39,7 @@ type SdlInstance struct {
 //can use this exported data type to locally store a reference to database
 //instance returned from NewDabase() function.
 type Database struct {
-	instance iDatabase
+	instances []iDatabase
 }
 
 //NewDatabase creates a connection to database that will be used
@@ -48,9 +47,11 @@ type Database struct {
 //can be reused between multiple SDL instances in which case each instance
 //is using the same connection.
 func NewDatabase() *Database {
-	return &Database{
-		instance: sdlgoredis.Create(),
+	db := &Database{}
+	for _, v := range sdlgoredis.Create() {
+		db.instances = append(db.instances, v)
 	}
+	return db
 }
 
 //NewSdlInstance creates a new sdl instance using the given namespace.

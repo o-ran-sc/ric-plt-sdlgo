@@ -30,6 +30,10 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.7.0] - 2021-05-11
+
+* Add DB backend instance selection based on namespace value to balance DB load.
+
 [0.6.0] - 2021-05-11
 
 * Add SDL multi-namespace API 'SyncStorage'.
