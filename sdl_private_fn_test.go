@@ -26,9 +26,8 @@ package sdlgo
 //underlying redis implementation with mock
 func NewSdlInstanceForTest(NameSpace string, instance iDatabase) *SdlInstance {
 	return &SdlInstance{
-		nameSpace:      NameSpace,
-		nsPrefix:       "{" + NameSpace + "},",
-		eventSeparator: "___",
-		iDatabase:      instance,
+		nameSpace: NameSpace,
+		nsPrefix:  "{" + NameSpace + "},",
+		storage:   newSyncStorage(&Database{instance: instance}),
 	}
 }
