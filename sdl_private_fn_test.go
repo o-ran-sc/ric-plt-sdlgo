@@ -24,6 +24,7 @@ package sdlgo
 
 //NewSdlInstanceForTest is used in unit tests only in order to replace the
 //underlying redis implementation with mock
+//Deprecated: will be removed in a future release.
 func NewSdlInstanceForTest(NameSpace string, instance iDatabase) *SdlInstance {
 	db := &Database{}
 	db.instances = append(db.instances, instance)
