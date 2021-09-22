@@ -435,6 +435,34 @@ func (s *SyncStorage) GetAll(ns string) ([]string, error) {
 	return retVal, err
 }
 
+// ListKeys returns all keys in the given namespace matching key search pattern.
+//
+//  Supported search glob-style patterns:
+//    h?llo matches hello, hallo and hxllo
+//    h*llo matches hllo and heeeello
+//    h[ae]llo matches hello and hallo, but not hillo
+//    h[^e]llo matches hallo, hbllo, ... but not hello
+//    h[a-b]llo matches hallo and hbllo
+//
+//  The \ escapes character in key search pattern and those will be treated as a normal
+//  character:
+//    h\[?llo\* matches h[ello* and h[allo*
+//
+// No prior knowledge about the keys in the given namespace exists,
+// thus operation is not guaranteed to be atomic or isolated.
+func (s *SyncStorage) ListKeys(ns string, pattern string) ([]string, error) {
+	nsPrefix := getNsPrefix(ns)
+	nsKeys, err := s.getDbBackend(ns).Keys(nsPrefix + pattern)
+	var keys []string
+	if err != nil {
+		return keys, err
+	}
+	for _, key := range nsKeys {
+		keys = append(keys, strings.Split(key, nsPrefix)[1])
+	}
+	return keys, err
+}
+
 //RemoveAll removes all keys under the namespace. Remove operation is not atomic, thus
 //it is not guaranteed that all keys are removed.
 func (s *SyncStorage) RemoveAll(ns string) error {
