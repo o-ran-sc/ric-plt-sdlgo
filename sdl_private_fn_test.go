@@ -35,3 +35,11 @@ func NewSdlInstanceForTest(NameSpace string, instance iDatabase) *SdlInstance {
 		storage:   newSyncStorage(db),
 	}
 }
+
+// NewSyncStorageForTest is used only in unit tests to mock database.
+func NewSyncStorageForTest(dbMock iDatabase) *SyncStorage {
+	db := &Database{}
+	db.instances = append(db.instances, dbMock)
+
+	return newSyncStorage(db)
+}
