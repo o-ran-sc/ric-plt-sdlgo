@@ -1,0 +1,12 @@
+Verified+1: ORAN Jobbuilder <releng+oran-jobbuilder@linuxfoundation.org>
+Code-Review+1: Thoralf Czichy <thoralf.czichy@nokia.com>
+Code-Review+1: Petri Ovaska <petri.ovaska@nokia.com>
+Code-Review+1: Marco Tallskog <marco.tallskog@nokia.com>
+Code-Review+1: makiaija <jussi.maki-aijala@nokia.com>
+Code-Review+1: Rolf Badorek <rolf.badorek@nokia.com>
+Code-Review+2: Timo Tietavainen <timo.tietavainen@nokia.com>
+Submitted-by: Timo Tietavainen <timo.tietavainen@nokia.com>
+Submitted-at: Fri, 24 Sep 2021 07:53:51 +0000
+Reviewed-on: https://gerrit.o-ran-sc.org/r/c/ric-plt/sdlgo/+/6740
+Project: ric-plt/sdlgo
+Branch: refs/heads/master
