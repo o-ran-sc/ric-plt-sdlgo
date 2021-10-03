@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "ac07944f_c3775987",
+        "filename": "syncstorage_test.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-10-03T17:49:26Z",
+      "side": 1,
+      "message": "After Copyright text there should be also this text: \"This source code is part of the near-RT RIC (RAN Intelligent Controller) platform project (RICP)\"",
+      "revId": "4210a480773e9904aed48ff0881a711d9db135ed",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "9378c9e6_d83c167a",
+        "filename": "syncstorage_test.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-10-03T17:49:26Z",
+      "side": 1,
+      "message": "Please run also \"go fmt\" for this file to automatically format the code.",
+      "revId": "4210a480773e9904aed48ff0881a711d9db135ed",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    }
+  ]
+}
