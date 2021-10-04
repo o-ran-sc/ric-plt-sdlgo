@@ -79,6 +79,8 @@ func main() {
 			noexist(sdl)
 		case "getall":
 			getall(sdl)
+		case "listkeys":
+			listkeys(sdl)
 		case "removeall":
 			removeall(sdl)
 		case "emptymap":
@@ -112,6 +114,7 @@ func printHelp() {
 	fmt.Println("             found")
 	fmt.Println("getall       Read all keys within a namespace. One can manually add keys under the used namespace and all")
 	fmt.Println("             those keys should be returned here. Performance is measured")
+	fmt.Println("listkeys     List keys in the given namespace matching key search pattern.")
 	fmt.Println("removeall    Remove all keys within a namespace. Performance is measured")
 	fmt.Println("emptymap     Write an empty container. Performance is measured")
 	fmt.Println("multiple     Make two writes. Performance is measured")
@@ -185,6 +188,22 @@ func getall(sdl *sdlgo.SyncStorage) {
 	elapsed := time.Since(start)
 	if err == nil {
 		fmt.Printf("Getall: %s\n", elapsed)
+		for _, i := range keys {
+			fmt.Println(i)
+		}
+	} else {
+		fmt.Println(err)
+	}
+}
+
+func listkeys(sdl *sdlgo.SyncStorage) {
+	start := time.Now()
+	ns := "tag1"
+	pattern := "*"
+	keys, err := sdl.ListKeys(ns, pattern)
+	elapsed := time.Since(start)
+	if err == nil {
+		fmt.Printf("ListKeys(%s, %s): %s\n", ns, pattern, elapsed)
 		for _, i := range keys {
 			fmt.Println(i)
 		}

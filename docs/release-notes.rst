@@ -30,6 +30,11 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.8.0] - 2021-09-22
+
+* New ListKeys API in syncstorage
+* Add deprecation warnings for SdlInstance APIs
+
 [0.7.0] - 2021-05-11
 
 * Add DB backend instance selection based on namespace value to balance DB load.
