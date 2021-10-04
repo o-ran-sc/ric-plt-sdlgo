@@ -1,6 +1,23 @@
 {
   "comments": [
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "1e0e93ca_dfdfa60c",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-10-04T07:03:26Z",
+      "side": 1,
+      "message": "Fixed findings, Please check patchset #2.",
+      "revId": "4210a480773e9904aed48ff0881a711d9db135ed",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "ac07944f_c3775987",
@@ -18,6 +35,24 @@
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "5ccbbb00_b6cdef66",
+        "filename": "syncstorage_test.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-10-04T07:03:26Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "ac07944f_c3775987",
+      "revId": "4210a480773e9904aed48ff0881a711d9db135ed",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "9378c9e6_d83c167a",
@@ -31,6 +66,24 @@
       "writtenOn": "2021-10-03T17:49:26Z",
       "side": 1,
       "message": "Please run also \"go fmt\" for this file to automatically format the code.",
+      "revId": "4210a480773e9904aed48ff0881a711d9db135ed",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "1a6103ef_0ea011c3",
+        "filename": "syncstorage_test.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-10-04T07:03:26Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "9378c9e6_d83c167a",
       "revId": "4210a480773e9904aed48ff0881a711d9db135ed",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
