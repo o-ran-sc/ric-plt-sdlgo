@@ -23,17 +23,13 @@
 package cli
 
 import (
-	"github.com/spf13/cobra"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 )
 
-func NewRootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   SdlCliApp,
-		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
-		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
-		Run: func(cmd *cobra.Command, args []string) {
-		},
+func newDatabase() *Database {
+	db := &Database{}
+	for _, v := range sdlgoredis.Create() {
+		db.Instances = append(db.Instances, v)
 	}
-	cmd.AddCommand(NewHealthCheckCmd())
-	return cmd
+	return db
 }
