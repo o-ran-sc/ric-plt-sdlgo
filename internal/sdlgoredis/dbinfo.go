@@ -20,20 +20,17 @@
  * platform project (RICP).
  */
 
-package cli
+package sdlgoredis
 
-import (
-	"github.com/spf13/cobra"
-)
+//DbInfo struct is a holder for DB information, which is received from
+//sdlgoredis 'info' call's output.
+type DbInfo struct {
+	Fields DbInfoFields
+}
 
-func NewRootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   SdlCliApp,
-		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
-		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
-		Run: func(cmd *cobra.Command, args []string) {
-		},
-	}
-	cmd.AddCommand(NewHealthCheckCmd())
-	return cmd
+//DbInfoFields struct is a holder for fields, which are read from sdlgoredis
+//'info' call's output.
+type DbInfoFields struct {
+	MasterRole          bool
+	ConnectedReplicaCnt uint32
 }

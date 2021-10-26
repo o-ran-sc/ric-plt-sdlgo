@@ -20,20 +20,23 @@
  * platform project (RICP).
  */
 
-package cli
+package mocks
 
 import (
-	"github.com/spf13/cobra"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+	"github.com/stretchr/testify/mock"
 )
 
-func NewRootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   SdlCliApp,
-		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
-		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
-		Run: func(cmd *cobra.Command, args []string) {
-		},
-	}
-	cmd.AddCommand(NewHealthCheckCmd())
-	return cmd
+type MockDB struct {
+	mock.Mock
+}
+
+func (m *MockDB) Info() (*sdlgoredis.DbInfo, error) {
+	a := m.Called()
+	return a.Get(0).(*sdlgoredis.DbInfo), a.Error(1)
+}
+
+func (m *MockDB) State() (*sdlgoredis.DbState, error) {
+	a := m.Called()
+	return a.Get(0).(*sdlgoredis.DbState), a.Error(1)
 }
