@@ -20,7 +20,22 @@
  * platform project (RICP).
  */
 
-package cli
+package mocks
 
-//SdlCliApp constant defines the name of the SDL CLI application
-const SdlCliApp = "sdlcli"
+import (
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal"
+	"github.com/stretchr/testify/mock"
+)
+
+type MockDB struct {
+	mock.Mock
+}
+
+func (m *MockDB) Ping() error {
+	return m.Called().Error(0)
+}
+
+func (m *MockDB) Info() (*internal.DbInfo, error) {
+	a := m.Called()
+	return a.Get(0).(*internal.DbInfo), a.Error(1)
+}
