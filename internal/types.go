@@ -20,20 +20,24 @@
  * platform project (RICP).
  */
 
-package cli
+package internal
 
-import (
-	"github.com/spf13/cobra"
-)
+//Interface towards database, for the time being sdlgoredis.DB implements this interface
+type iDatabase interface {
+	Info() (*DbInfo, error)
+}
 
-func NewRootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   SdlCliApp,
-		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
-		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
-		Run: func(cmd *cobra.Command, args []string) {
-		},
-	}
-	cmd.AddCommand(NewHealthCheckCmd())
-	return cmd
+type Database struct {
+	Instances []iDatabase
+}
+
+type DbInfo struct {
+	MasterRole      bool
+	ConfReplicasCnt uint32
+	Replicas        []DbInfoReplica
+}
+
+type DbInfoReplica struct {
+	Addr  string
+	State string
 }

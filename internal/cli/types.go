@@ -22,5 +22,9 @@
 
 package cli
 
+import "gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal"
+
 //Name of the SDL CLI application
 const SdlCliApp = "sdlcli"
+
+type DbCreateCb func() *internal.Database

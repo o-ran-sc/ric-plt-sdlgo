@@ -28,6 +28,7 @@ import (
 	"testing"
 	"time"
 
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
@@ -136,6 +137,10 @@ func (m *clientMock) ScriptExists(scripts ...string) *redis.BoolSliceCmd {
 
 func (m *clientMock) ScriptLoad(script string) *redis.StringCmd {
 	return m.Called(script).Get(0).(*redis.StringCmd)
+}
+
+func (m *clientMock) Info(section ...string) *redis.StringCmd {
+	return m.Called(section).Get(0).(*redis.StringCmd)
 }
 
 func setSubscribeNotifications() (*pubSubMock, sdlgoredis.SubscribeFn) {
@@ -976,4 +981,48 @@ func TestClientTwoSentinelRedisEnvs(t *testing.T) {
 	assert.Nil(t, err)
 	rcls[0].AssertExpectations(t)
 	rcls[1].AssertExpectations(t)
+}
+
+func TestInfoOfMasterRedisWithTwoSlavesSuccessfully(t *testing.T) {
+	redisInfo := "# Replication\r\n" +
+		"role:master\r\n" +
+		"connected_slaves:2\r\n" +
+		"min_slaves_good_slaves:2\r\n" +
+		"slave0:ip=1.2.3.4,port=6379,state=online,offset=100200300,lag=0\r\n" +
+		"slave1:ip=5.6.7.8,port=6379,state=online,offset=100200300,lag=0\r\n"
+	expInfo := &internal.DbInfo{
+		MasterRole:      true,
+		ConfReplicasCnt: 2,
+		Replicas: []internal.DbInfoReplica{
+			internal.DbInfoReplica{
+				Addr:  "1.2.3.4:6379",
+				State: "online",
+			},
+			internal.DbInfoReplica{
+				Addr:  "5.6.7.8:6379",
+				State: "online",
+			},
+		},
+	}
+	_, r, db := setup(true)
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	info, err := db.Info()
+	assert.Nil(t, err)
+	assert.Equal(t, expInfo, info)
+	r.AssertExpectations(t)
+}
+
+func TestInfoOfStandaloneMasterRedisSuccessfully(t *testing.T) {
+	redisInfo := "# Replication\r\n" +
+		"role:master\r\n" +
+		"connected_slaves:0\r\n"
+	expInfo := &internal.DbInfo{
+		MasterRole: true,
+	}
+	_, r, db := setup(true)
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	info, err := db.Info()
+	assert.Nil(t, err)
+	assert.Equal(t, expInfo, info)
+	r.AssertExpectations(t)
 }
