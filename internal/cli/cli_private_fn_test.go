@@ -22,5 +22,12 @@
 
 package cli
 
-//SdlCliApp constant defines the name of the SDL CLI application
-const SdlCliApp = "sdlcli"
+import (
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal"
+	"github.com/spf13/cobra"
+)
+
+// NewHealthCheckCmdForTest is used only in unit tests to mock database.
+func NewHealthCheckCmdForTest(dbCreator internal.DbCreateCb) *cobra.Command {
+	return newHealthCheckCmd(dbCreator)
+}

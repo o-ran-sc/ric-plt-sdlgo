@@ -25,8 +25,12 @@ package sdlgoredis
 import (
 	"errors"
 	"fmt"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal"
 	"github.com/go-redis/redis"
+	"io"
+	"log"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -92,6 +96,18 @@ type RedisClient interface {
 	EvalSha(sha1 string, keys []string, args ...interface{}) *redis.Cmd
 	ScriptExists(scripts ...string) *redis.BoolSliceCmd
 	ScriptLoad(script string) *redis.StringCmd
+	Info(section ...string) *redis.StringCmd
+}
+
+var dbLogger *log.Logger
+
+func init() {
+	dbLogger = log.New(os.Stdout, "database: ", log.LstdFlags|log.Lshortfile)
+	redis.SetLogger(dbLogger)
+}
+
+func SetDbLogger(out io.Writer) {
+	dbLogger.SetOutput(out)
 }
 
 func checkResultAndError(result interface{}, err error) (bool, error) {
@@ -453,6 +469,68 @@ func (db *DB) SCard(key string) (int64, error) {
 func (db *DB) PTTL(key string) (time.Duration, error) {
 	result, err := db.client.PTTL(key).Result()
 	return result, err
+}
+
+func (db *DB) Info() (*internal.DbInfo, error) {
+	var info internal.DbInfo
+	resultStr, err := db.client.Info("all").Result()
+	result := strings.Split(strings.ReplaceAll(resultStr, "\r\n", "\n"), "\n")
+	readRole(result, &info)
+	readSlaves(result, &info)
+	return &info, err
+}
+
+func readRole(input []string, info *internal.DbInfo) {
+	for _, line := range input {
+		if idx := strings.Index(line, "role:"); idx != -1 {
+			roleStr := line[idx+len("role:"):]
+			if roleStr == "master" {
+				info.MasterRole = true
+			}
+		}
+	}
+}
+
+func readSlaves(input []string, info *internal.DbInfo) {
+	for _, line := range input {
+		//'min_slaves_good_slaves' info field exists in Redis HA deployment, not in standalone deployment
+		if idx := strings.Index(line, "min_slaves_good_slaves:"); idx != -1 {
+			cntStr := line[idx+len("min_slaves_good_slaves:"):]
+			if cnt, err := strconv.ParseUint(cntStr, 10, 32); err == nil {
+				info.ConfReplicasCnt = uint32(cnt)
+			}
+
+		}
+		//Redis HA deployment's master redis info has fields like this for connected slaves:
+		//  slave0:ip=1.2.3.4,port=6379,state=online,offset=100200300,lag=0
+		//Read and parse IP, port and state information from those fields
+		re := regexp.MustCompile(`slave[0-9]+:`)
+		if loc := re.FindStringIndex(line); loc != nil {
+			parseSlaveLine(line[loc[1]:], info)
+		}
+	}
+}
+
+func parseSlaveLine(line string, info *internal.DbInfo) {
+	var ip, port string
+	var online bool
+	for _, str := range strings.Split(line, ",") {
+		if idx := strings.Index(str, "ip="); idx != -1 {
+			ip = str[idx+len("ip="):]
+		} else if idx := strings.Index(str, "port="); idx != -1 {
+			port = str[idx+len("port="):]
+		} else if idx := strings.Index(str, "state="); idx != -1 {
+			if str[idx+len("state="):] == "online" {
+				online = true
+			}
+		}
+	}
+	if ip != "" && port != "" {
+		info.Replicas = append(info.Replicas, internal.DbInfoReplica{
+			Addr:   ip + ":" + port,
+			Online: online,
+		})
+	}
 }
 
 var luaRefresh = redis.NewScript(`if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("pexpire", KEYS[1], ARGV[2]) else return 0 end`)
