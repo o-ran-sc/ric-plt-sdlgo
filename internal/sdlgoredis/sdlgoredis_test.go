@@ -24,14 +24,13 @@ package sdlgoredis_test
 
 import (
 	"errors"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+	"github.com/go-redis/redis/v7"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"strconv"
 	"testing"
 	"time"
-
-	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
-	"github.com/go-redis/redis"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 type clientMock struct {
@@ -138,6 +137,23 @@ func (m *clientMock) ScriptLoad(script string) *redis.StringCmd {
 	return m.Called(script).Get(0).(*redis.StringCmd)
 }
 
+func (m *clientMock) Info(section ...string) *redis.StringCmd {
+	return m.Called(section).Get(0).(*redis.StringCmd)
+}
+
+type MockRedisSentinel struct {
+	mock.Mock
+}
+
+func (m *MockRedisSentinel) Master(name string) *redis.StringStringMapCmd {
+	a := m.Called(name)
+	return a.Get(0).(*redis.StringStringMapCmd)
+}
+func (m *MockRedisSentinel) Slaves(name string) *redis.SliceCmd {
+	a := m.Called(name)
+	return a.Get(0).(*redis.SliceCmd)
+}
+
 func setSubscribeNotifications() (*pubSubMock, sdlgoredis.SubscribeFn) {
 	mock := new(pubSubMock)
 	return mock, func(client sdlgoredis.RedisClient, channels ...string) sdlgoredis.Subscriber {
@@ -150,16 +166,48 @@ func (m *MockOS) Getenv(key string, defValue string) string {
 	return a.String(0)
 }
 
-func setup(commandsExists bool) (*pubSubMock, *clientMock, *sdlgoredis.DB) {
-	mock := new(clientMock)
-	pubSubMock, subscribeNotifications := setSubscribeNotifications()
-	db := sdlgoredis.CreateDB(mock, subscribeNotifications)
+type setupEv struct {
+	pubSubMock []*pubSubMock
+	rClient    []*clientMock
+	rSentinel  []*MockRedisSentinel
+	db         []*sdlgoredis.DB
+}
+
+func setupHaEnv(commandsExists bool) (*pubSubMock, *clientMock, *sdlgoredis.DB) {
+	psm, cm, _, db := setupHaEnvWithSentinels(commandsExists)
+	return psm, cm, db
+}
+
+func setupHaEnvWithSentinels(commandsExists bool) (*pubSubMock, *clientMock, []*MockRedisSentinel, *sdlgoredis.DB) {
+	setupVals := setupEnv(
+		commandsExists,
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt",
+		"6376",
+		"dbaasmaster",
+		"26376",
+		"",
+		"3",
+	)
+	return setupVals.pubSubMock[0], setupVals.rClient[0], setupVals.rSentinel, setupVals.db[0]
+}
+
+func setupSingleEnv(commandsExists bool) (*pubSubMock, *clientMock, *sdlgoredis.DB) {
+	setupVals := setupEnv(
+		commandsExists,
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt",
+		"6376", "", "", "", "",
+	)
+	return setupVals.pubSubMock[0], setupVals.rClient[0], setupVals.db[0]
+}
+
+func setupEnv(commandsExists bool, host, port, msname, sntport, clsaddrlist, nodeCnt string) setupEv {
+	var ret setupEv
 
 	dummyCommandInfo := redis.CommandInfo{
 		Name: "dummy",
 	}
-	cmdResult := make(map[string]*redis.CommandInfo, 0)
 
+	cmdResult := make(map[string]*redis.CommandInfo, 0)
 	if commandsExists {
 		cmdResult = map[string]*redis.CommandInfo{
 			"setie":    &dummyCommandInfo,
@@ -175,45 +223,43 @@ func setup(commandsExists bool) (*pubSubMock, *clientMock, *sdlgoredis.DB) {
 		}
 	}
 
-	mock.On("Command").Return(redis.NewCommandsInfoCmdResult(cmdResult, nil))
-	db.CheckCommands()
-	return pubSubMock, mock, db
-}
-
-func setupEnv(host, port, msname, sntport, clsaddrlist string) ([]*clientMock, []*sdlgoredis.DB) {
-	var clmocks []*clientMock
-
-	dummyCommandInfo := redis.CommandInfo{
-		Name: "dummy",
-	}
-	cmdResult := make(map[string]*redis.CommandInfo, 0)
-
-	cmdResult = map[string]*redis.CommandInfo{
-		"dummy": &dummyCommandInfo,
-	}
-
 	osmock := new(MockOS)
 	osmock.On("Getenv", "DBAAS_SERVICE_HOST", "localhost").Return(host)
 	osmock.On("Getenv", "DBAAS_SERVICE_PORT", "6379").Return(port)
 	osmock.On("Getenv", "DBAAS_MASTER_NAME", "").Return(msname)
 	osmock.On("Getenv", "DBAAS_SERVICE_SENTINEL_PORT", "").Return(sntport)
 	osmock.On("Getenv", "DBAAS_CLUSTER_ADDR_LIST", "").Return(clsaddrlist)
+	osmock.On("Getenv", "DBAAS_SERVICE_NODE_COUNT", "").Return(nodeCnt)
 
+	pubSubMock, subscribeNotifications := setSubscribeNotifications()
+	smock := new(MockRedisSentinel)
+	ret.rSentinel = append(ret.rSentinel, smock)
 	clients := sdlgoredis.ReadConfigAndCreateDbClients(
 		osmock,
 		func(addr, port, clusterName string, isHa bool) sdlgoredis.RedisClient {
 			clm := new(clientMock)
 			clm.On("Command").Return(redis.NewCommandsInfoCmdResult(cmdResult, nil))
-			clmocks = append(clmocks, clm)
+			ret.rClient = append(ret.rClient, clm)
+			ret.pubSubMock = append(ret.pubSubMock, pubSubMock)
 			return clm
 		},
+		subscribeNotifications,
+		func(cfg *sdlgoredis.Config, addr string) *sdlgoredis.Sentinel {
+			//smock := new(MockRedisSentinel)
+			s := &sdlgoredis.Sentinel{
+				IredisSentinelClient: smock,
+				Cfg:                  cfg,
+			}
+			//ret.rSentinel = append(ret.rSentinel, smock)
+			return s
+		},
 	)
-
-	return clmocks, clients
+	ret.db = clients
+	return ret
 }
 
 func TestCloseDbSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	r.On("Close").Return(nil)
 	err := db.CloseDB()
 	assert.Nil(t, err)
@@ -221,7 +267,7 @@ func TestCloseDbSuccessfully(t *testing.T) {
 }
 
 func TestCloseDbFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	r.On("Close").Return(errors.New("Some error"))
 	err := db.CloseDB()
 	assert.NotNil(t, err)
@@ -229,7 +275,7 @@ func TestCloseDbFailure(t *testing.T) {
 }
 
 func TestMSetSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKeysAndValues := []interface{}{"key1", "value1", "key2", 2}
 	r.On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
 	err := db.MSet("key1", "value1", "key2", 2)
@@ -238,7 +284,7 @@ func TestMSetSuccessfully(t *testing.T) {
 }
 
 func TestMSetFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKeysAndValues := []interface{}{"key1", "value1", "key2", 2}
 	r.On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", errors.New("Some error")))
 	err := db.MSet("key1", "value1", "key2", 2)
@@ -247,7 +293,7 @@ func TestMSetFailure(t *testing.T) {
 }
 
 func TestMSetMPubSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"MSETMPUB", 2, 2, "key1", "val1", "key2", "val2",
 		"chan1", "event1", "chan2", "event2"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("", nil))
@@ -257,7 +303,7 @@ func TestMSetMPubSuccessfully(t *testing.T) {
 }
 
 func TestMsetMPubFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"MSETMPUB", 2, 2, "key1", "val1", "key2", "val2",
 		"chan1", "event1", "chan2", "event2"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("", errors.New("Some error")))
@@ -267,7 +313,7 @@ func TestMsetMPubFailure(t *testing.T) {
 }
 
 func TestMSetMPubCommandMissing(t *testing.T) {
-	_, r, db := setup(false)
+	_, r, db := setupHaEnv(false)
 	expectedMessage := []interface{}{"MSETMPUB", 2, 2, "key1", "val1", "key2", "val2",
 		"chan1", "event1", "chan2", "event2"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
@@ -278,7 +324,7 @@ func TestMSetMPubCommandMissing(t *testing.T) {
 }
 
 func TestMGetSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKeys := []string{"key1", "key2", "key3"}
 	expectedResult := []interface{}{"val1", 2, nil}
 	r.On("MGet", expectedKeys).Return(redis.NewSliceResult(expectedResult, nil))
@@ -289,7 +335,7 @@ func TestMGetSuccessfully(t *testing.T) {
 }
 
 func TestMGetFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKeys := []string{"key1", "key2", "key3"}
 	expectedResult := []interface{}{nil}
 	r.On("MGet", expectedKeys).Return(redis.NewSliceResult(expectedResult,
@@ -301,7 +347,7 @@ func TestMGetFailure(t *testing.T) {
 }
 
 func TestDelMPubSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELMPUB", 2, 2, "key1", "key2", "chan1", "event1",
 		"chan2", "event2"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("", nil))
@@ -311,7 +357,7 @@ func TestDelMPubSuccessfully(t *testing.T) {
 }
 
 func TestDelMPubFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELMPUB", 2, 2, "key1", "key2", "chan1", "event1",
 		"chan2", "event2"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("", errors.New("Some error")))
@@ -321,7 +367,7 @@ func TestDelMPubFailure(t *testing.T) {
 }
 
 func TestDelMPubCommandMissing(t *testing.T) {
-	_, r, db := setup(false)
+	_, r, db := setupHaEnv(false)
 	expectedMessage := []interface{}{"DELMPUB", 2, 2, "key1", "key2", "chan1", "event1",
 		"chan2", "event2"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
@@ -331,7 +377,7 @@ func TestDelMPubCommandMissing(t *testing.T) {
 }
 
 func TestDelSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKeys := []string{"key1", "key2"}
 	r.On("Del", expectedKeys).Return(redis.NewIntResult(2, nil))
 	assert.Nil(t, db.Del([]string{"key1", "key2"}))
@@ -339,7 +385,7 @@ func TestDelSuccessfully(t *testing.T) {
 }
 
 func TestDelFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKeys := []string{"key1", "key2"}
 	r.On("Del", expectedKeys).Return(redis.NewIntResult(2, errors.New("Some error")))
 	assert.NotNil(t, db.Del([]string{"key1", "key2"}))
@@ -347,7 +393,7 @@ func TestDelFailure(t *testing.T) {
 }
 
 func TestKeysSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedPattern := "pattern*"
 	expectedResult := []string{"pattern1", "pattern2"}
 	r.On("Keys", expectedPattern).Return(redis.NewStringSliceResult(expectedResult, nil))
@@ -358,7 +404,7 @@ func TestKeysSuccessfully(t *testing.T) {
 }
 
 func TestKeysFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedPattern := "pattern*"
 	expectedResult := []string{}
 	r.On("Keys", expectedPattern).Return(redis.NewStringSliceResult(expectedResult,
@@ -369,7 +415,7 @@ func TestKeysFailure(t *testing.T) {
 }
 
 func TestSetIEKeyExists(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETIE", "key", "newdata", "olddata"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("OK", nil))
 	result, err := db.SetIE("key", "olddata", "newdata")
@@ -379,7 +425,7 @@ func TestSetIEKeyExists(t *testing.T) {
 }
 
 func TestSetIEKeyDoesntExists(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETIE", "key", "newdata", "olddata"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, nil))
 	result, err := db.SetIE("key", "olddata", "newdata")
@@ -389,7 +435,7 @@ func TestSetIEKeyDoesntExists(t *testing.T) {
 }
 
 func TestSetIEFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETIE", "key", "newdata", "olddata"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, errors.New("Some error")))
 	result, err := db.SetIE("key", "olddata", "newdata")
@@ -399,7 +445,7 @@ func TestSetIEFailure(t *testing.T) {
 }
 
 func TestSetIECommandMissing(t *testing.T) {
-	_, r, db := setup(false)
+	_, r, db := setupHaEnv(false)
 	expectedMessage := []interface{}{"SETIE", "key", "newdata", "olddata"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
 	result, err := db.SetIE("key", "olddata", "newdata")
@@ -409,7 +455,7 @@ func TestSetIECommandMissing(t *testing.T) {
 }
 
 func TestSetIEPubKeyExists(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETIEMPUB", "key", "newdata", "olddata", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("OK", nil))
 	result, err := db.SetIEPub([]string{"channel", "message"}, "key", "olddata", "newdata")
@@ -419,7 +465,7 @@ func TestSetIEPubKeyExists(t *testing.T) {
 }
 
 func TestSetIEPubKeyDoesntExists(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETIEMPUB", "key", "newdata", "olddata", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, nil))
 	result, err := db.SetIEPub([]string{"channel", "message"}, "key", "olddata", "newdata")
@@ -429,7 +475,7 @@ func TestSetIEPubKeyDoesntExists(t *testing.T) {
 }
 
 func TestSetIEPubFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETIEMPUB", "key", "newdata", "olddata", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, errors.New("Some error")))
 	result, err := db.SetIEPub([]string{"channel", "message"}, "key", "olddata", "newdata")
@@ -439,7 +485,7 @@ func TestSetIEPubFailure(t *testing.T) {
 }
 
 func TestSetIEPubCommandMissing(t *testing.T) {
-	_, r, db := setup(false)
+	_, r, db := setupHaEnv(false)
 	expectedMessage := []interface{}{"SETIEMPUB", "key", "newdata", "olddata", "channel", "message"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
 	result, err := db.SetIEPub([]string{"channel", "message"}, "key", "olddata", "newdata")
@@ -449,7 +495,7 @@ func TestSetIEPubCommandMissing(t *testing.T) {
 }
 
 func TestSetNXPubKeyDoesntExist(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETNXMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult("OK", nil))
 	result, err := db.SetNXPub([]string{"channel", "message"}, "key", "data")
@@ -459,7 +505,7 @@ func TestSetNXPubKeyDoesntExist(t *testing.T) {
 }
 
 func TestSetNXPubKeyExists(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETNXMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, nil))
 	result, err := db.SetNXPub([]string{"channel", "message"}, "key", "data")
@@ -469,7 +515,7 @@ func TestSetNXPubKeyExists(t *testing.T) {
 }
 
 func TestSetNXPubFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"SETNXMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(nil, errors.New("Some error")))
 	result, err := db.SetNXPub([]string{"channel", "message"}, "key", "data")
@@ -479,7 +525,7 @@ func TestSetNXPubFailure(t *testing.T) {
 }
 
 func TestSetNXPubCommandMissing(t *testing.T) {
-	_, r, db := setup(false)
+	_, r, db := setupHaEnv(false)
 	expectedMessage := []interface{}{"SETNXMPUB", "key", "data", "channel", "message"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
 	result, err := db.SetNXPub([]string{"channel", "message"}, "key", "data")
@@ -489,7 +535,7 @@ func TestSetNXPubCommandMissing(t *testing.T) {
 }
 
 func TestSetNXSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SetNX", expectedKey, expectedData, time.Duration(0)).Return(redis.NewBoolResult(true, nil))
@@ -500,7 +546,7 @@ func TestSetNXSuccessfully(t *testing.T) {
 }
 
 func TestSetNXUnsuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SetNX", expectedKey, expectedData, time.Duration(0)).Return(redis.NewBoolResult(false, nil))
@@ -511,7 +557,7 @@ func TestSetNXUnsuccessfully(t *testing.T) {
 }
 
 func TestSetNXFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SetNX", expectedKey, expectedData, time.Duration(0)).
@@ -523,7 +569,7 @@ func TestSetNXFailure(t *testing.T) {
 }
 
 func TestDelIEPubKeyDoesntExist(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(0), nil))
 	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
@@ -533,7 +579,7 @@ func TestDelIEPubKeyDoesntExist(t *testing.T) {
 }
 
 func TestDelIEPubKeyExists(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(1), nil))
 	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
@@ -543,7 +589,7 @@ func TestDelIEPubKeyExists(t *testing.T) {
 }
 
 func TestDelIEPubKeyExistsIntTypeRedisValue(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(1, nil))
 	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
@@ -553,7 +599,7 @@ func TestDelIEPubKeyExistsIntTypeRedisValue(t *testing.T) {
 }
 
 func TestDelIEPubFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(0), errors.New("Some error")))
 	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
@@ -563,7 +609,7 @@ func TestDelIEPubFailure(t *testing.T) {
 }
 
 func TestDelIEPubCommandMissing(t *testing.T) {
-	_, r, db := setup(false)
+	_, r, db := setupHaEnv(false)
 	expectedMessage := []interface{}{"DELIEMPUB", "key", "data", "channel", "message"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
 	result, err := db.DelIEPub([]string{"channel", "message"}, "key", "data")
@@ -573,7 +619,7 @@ func TestDelIEPubCommandMissing(t *testing.T) {
 }
 
 func TestDelIEKeyDoesntExist(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELIE", "key", "data"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(0), nil))
 	result, err := db.DelIE("key", "data")
@@ -583,7 +629,7 @@ func TestDelIEKeyDoesntExist(t *testing.T) {
 }
 
 func TestDelIEKeyExists(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELIE", "key", "data"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(1), nil))
 	result, err := db.DelIE("key", "data")
@@ -593,7 +639,7 @@ func TestDelIEKeyExists(t *testing.T) {
 }
 
 func TestDelIEKeyExistsIntTypeRedisValue(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELIE", "key", "data"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(1, nil))
 	result, err := db.DelIE("key", "data")
@@ -603,7 +649,7 @@ func TestDelIEKeyExistsIntTypeRedisValue(t *testing.T) {
 }
 
 func TestDelIEFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedMessage := []interface{}{"DELIE", "key", "data"}
 	r.On("Do", expectedMessage).Return(redis.NewCmdResult(int64(0), errors.New("Some error")))
 	result, err := db.DelIE("key", "data")
@@ -613,7 +659,7 @@ func TestDelIEFailure(t *testing.T) {
 }
 
 func TestDelIECommandMissing(t *testing.T) {
-	_, r, db := setup(false)
+	_, r, db := setupHaEnv(false)
 	expectedMessage := []interface{}{"DELIE", "key", "data"}
 	r.AssertNotCalled(t, "Do", expectedMessage)
 	result, err := db.DelIE("key", "data")
@@ -623,7 +669,7 @@ func TestDelIECommandMissing(t *testing.T) {
 }
 
 func TestSAddSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := []interface{}{"data", 2}
 	r.On("SAdd", expectedKey, expectedData).Return(redis.NewIntResult(2, nil))
@@ -632,7 +678,7 @@ func TestSAddSuccessfully(t *testing.T) {
 }
 
 func TestSAddFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := []interface{}{"data", 2}
 	r.On("SAdd", expectedKey, expectedData).Return(redis.NewIntResult(2, errors.New("Some error")))
@@ -641,7 +687,7 @@ func TestSAddFailure(t *testing.T) {
 }
 
 func TestSRemSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := []interface{}{"data", 2}
 	r.On("SRem", expectedKey, expectedData).Return(redis.NewIntResult(2, nil))
@@ -650,7 +696,7 @@ func TestSRemSuccessfully(t *testing.T) {
 }
 
 func TestSRemFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := []interface{}{"data", 2}
 	r.On("SRem", expectedKey, expectedData).Return(redis.NewIntResult(2, errors.New("Some error")))
@@ -659,7 +705,7 @@ func TestSRemFailure(t *testing.T) {
 }
 
 func TestSMembersSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedResult := []string{"member1", "member2"}
 	r.On("SMembers", expectedKey).Return(redis.NewStringSliceResult(expectedResult, nil))
@@ -670,7 +716,7 @@ func TestSMembersSuccessfully(t *testing.T) {
 }
 
 func TestSMembersFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedResult := []string{"member1", "member2"}
 	r.On("SMembers", expectedKey).Return(redis.NewStringSliceResult(expectedResult,
@@ -682,7 +728,7 @@ func TestSMembersFailure(t *testing.T) {
 }
 
 func TestSIsMemberIsMember(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SIsMember", expectedKey, expectedData).Return(redis.NewBoolResult(true, nil))
@@ -693,7 +739,7 @@ func TestSIsMemberIsMember(t *testing.T) {
 }
 
 func TestSIsMemberIsNotMember(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SIsMember", expectedKey, expectedData).Return(redis.NewBoolResult(false, nil))
@@ -704,7 +750,7 @@ func TestSIsMemberIsNotMember(t *testing.T) {
 }
 
 func TestSIsMemberFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	r.On("SIsMember", expectedKey, expectedData).
@@ -716,7 +762,7 @@ func TestSIsMemberFailure(t *testing.T) {
 }
 
 func TestSCardSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	r.On("SCard", expectedKey).Return(redis.NewIntResult(1, nil))
 	result, err := db.SCard("key")
@@ -726,7 +772,7 @@ func TestSCardSuccessfully(t *testing.T) {
 }
 
 func TestSCardFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	r.On("SCard", expectedKey).Return(redis.NewIntResult(1, errors.New("Some error")))
 	result, err := db.SCard("key")
@@ -736,7 +782,7 @@ func TestSCardFailure(t *testing.T) {
 }
 
 func TestSubscribeChannelDBSubscribeRXUnsubscribe(t *testing.T) {
-	ps, r, db := setup(true)
+	ps, r, db := setupHaEnv(true)
 	ch := make(chan *redis.Message)
 	msg := redis.Message{
 		Channel: "{prefix}channel",
@@ -762,7 +808,7 @@ func TestSubscribeChannelDBSubscribeRXUnsubscribe(t *testing.T) {
 }
 
 func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
-	ps, r, db := setup(true)
+	ps, r, db := setupHaEnv(true)
 	ch := make(chan *redis.Message)
 	msg1 := redis.Message{
 		Channel: "{prefix}channel1",
@@ -805,7 +851,7 @@ func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
 }
 
 func TestSubscribeChannelReDBSubscribeAfterUnsubscribe(t *testing.T) {
-	ps, r, db := setup(true)
+	ps, r, db := setupHaEnv(true)
 	ch := make(chan *redis.Message)
 	msg := redis.Message{
 		Channel: "{prefix}channel",
@@ -841,7 +887,7 @@ func TestSubscribeChannelReDBSubscribeAfterUnsubscribe(t *testing.T) {
 }
 
 func TestPTTLSuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedResult := time.Duration(1)
 	r.On("PTTL", expectedKey).Return(redis.NewDurationResult(expectedResult,
@@ -853,7 +899,7 @@ func TestPTTLSuccessfully(t *testing.T) {
 }
 
 func TestPTTLFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedResult := time.Duration(1)
 	r.On("PTTL", expectedKey).Return(redis.NewDurationResult(expectedResult,
@@ -865,7 +911,7 @@ func TestPTTLFailure(t *testing.T) {
 }
 
 func TestPExpireIESuccessfully(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	expectedDuration := strconv.FormatInt(int64(10000), 10)
@@ -879,7 +925,7 @@ func TestPExpireIESuccessfully(t *testing.T) {
 }
 
 func TestPExpireIEFailure(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	expectedDuration := strconv.FormatInt(int64(10000), 10)
@@ -893,7 +939,7 @@ func TestPExpireIEFailure(t *testing.T) {
 }
 
 func TestPExpireIELockNotHeld(t *testing.T) {
-	_, r, db := setup(true)
+	_, r, db := setupHaEnv(true)
 	expectedKey := "key"
 	expectedData := "data"
 	expectedDuration := strconv.FormatInt(int64(10000), 10)
@@ -907,73 +953,332 @@ func TestPExpireIELockNotHeld(t *testing.T) {
 }
 
 func TestClientStandaloneRedisLegacyEnv(t *testing.T) {
-	rcls, dbs := setupEnv(
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "", "", "",
+	setupVals := setupEnv(
+		true,
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "", "", "", "",
 	)
-	assert.Equal(t, 1, len(rcls))
-	assert.Equal(t, 1, len(dbs))
+	assert.Equal(t, 1, len(setupVals.rClient))
+	assert.Equal(t, 1, len(setupVals.db))
 
 	expectedKeysAndValues := []interface{}{"key1", "value1"}
-	rcls[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
-	err := dbs[0].MSet("key1", "value1")
+	setupVals.rClient[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err := setupVals.db[0].MSet("key1", "value1")
 	assert.Nil(t, err)
-	rcls[0].AssertExpectations(t)
+	setupVals.rClient[0].AssertExpectations(t)
 }
 
 func TestClientSentinelRedisLegacyEnv(t *testing.T) {
-	rcls, dbs := setupEnv(
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "dbaasmaster", "26376", "",
+	setupVals := setupEnv(
+		true,
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "dbaasmaster", "26376", "", "3",
 	)
-	assert.Equal(t, 1, len(rcls))
-	assert.Equal(t, 1, len(dbs))
+	assert.Equal(t, 1, len(setupVals.rClient))
+	assert.Equal(t, 1, len(setupVals.db))
 
 	expectedKeysAndValues := []interface{}{"key1", "value1"}
-	rcls[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
-	err := dbs[0].MSet("key1", "value1")
+	setupVals.rClient[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err := setupVals.db[0].MSet("key1", "value1")
 	assert.Nil(t, err)
-	rcls[0].AssertExpectations(t)
+	setupVals.rClient[0].AssertExpectations(t)
 }
 
 func TestClientTwoStandaloneRedisEnvs(t *testing.T) {
-	rcls, dbs := setupEnv(
+	setupVals := setupEnv(
+		true,
 		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "", "",
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt",
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "",
 	)
-	assert.Equal(t, 2, len(rcls))
-	assert.Equal(t, 2, len(dbs))
+	assert.Equal(t, 2, len(setupVals.rClient))
+	assert.Equal(t, 2, len(setupVals.db))
 
 	expectedKeysAndValues := []interface{}{"key1", "value1"}
-	rcls[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
-	err := dbs[0].MSet("key1", "value1")
+	setupVals.rClient[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err := setupVals.db[0].MSet("key1", "value1")
 	assert.Nil(t, err)
-	rcls[0].AssertExpectations(t)
+	setupVals.rClient[0].AssertExpectations(t)
 
 	expectedKeysAndValues = []interface{}{"key2", "value2"}
-	rcls[1].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
-	err = dbs[1].MSet("key2", "value2")
+	setupVals.rClient[1].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err = setupVals.db[1].MSet("key2", "value2")
 	assert.Nil(t, err)
-	rcls[0].AssertExpectations(t)
-	rcls[1].AssertExpectations(t)
+	setupVals.rClient[0].AssertExpectations(t)
+	setupVals.rClient[1].AssertExpectations(t)
 }
 
 func TestClientTwoSentinelRedisEnvs(t *testing.T) {
-	rcls, dbs := setupEnv(
+	setupVals := setupEnv(
+		true,
 		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "dbaasmaster", "26376",
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt",
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "3",
 	)
-	assert.Equal(t, 2, len(rcls))
-	assert.Equal(t, 2, len(dbs))
+	assert.Equal(t, 2, len(setupVals.rClient))
+	assert.Equal(t, 2, len(setupVals.db))
 
 	expectedKeysAndValues := []interface{}{"key1", "value1"}
-	rcls[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
-	err := dbs[0].MSet("key1", "value1")
+	setupVals.rClient[0].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err := setupVals.db[0].MSet("key1", "value1")
 	assert.Nil(t, err)
-	rcls[0].AssertExpectations(t)
+	setupVals.rClient[0].AssertExpectations(t)
 
 	expectedKeysAndValues = []interface{}{"key2", "value2"}
-	rcls[1].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
-	err = dbs[1].MSet("key2", "value2")
+	setupVals.rClient[1].On("MSet", expectedKeysAndValues).Return(redis.NewStatusResult("OK", nil))
+	err = setupVals.db[1].MSet("key2", "value2")
 	assert.Nil(t, err)
-	rcls[0].AssertExpectations(t)
-	rcls[1].AssertExpectations(t)
+	setupVals.rClient[0].AssertExpectations(t)
+	setupVals.rClient[1].AssertExpectations(t)
+}
+
+func TestInfoOfMasterRedisWithTwoSlavesSuccessfully(t *testing.T) {
+	_, r, db := setupHaEnv(true)
+	redisInfo := "# Replication\r\n" +
+		"role:master\r\n" +
+		"connected_slaves:2\r\n" +
+		"min_slaves_good_slaves:2\r\n" +
+		"slave0:ip=1.2.3.4,port=6379,state=online,offset=100200300,lag=0\r\n" +
+		"slave1:ip=5.6.7.8,port=6379,state=online,offset=100200300,lag=0\r\n"
+	expInfo := &sdlgoredis.DbInfo{
+		Fields: sdlgoredis.DbInfoFields{
+			MasterRole:          true,
+			ConnectedReplicaCnt: 2,
+		},
+	}
+
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	info, err := db.Info()
+	assert.Nil(t, err)
+	assert.Equal(t, expInfo, info)
+	r.AssertExpectations(t)
+}
+
+func TestInfoOfMasterRedisWithOneSlaveOnlineAndOtherSlaveNotOnlineSuccessfully(t *testing.T) {
+	_, r, db := setupHaEnv(true)
+	redisInfo := "# Replication\r\n" +
+		"role:master\r\n" +
+		"connected_slaves:1\r\n" +
+		"min_slaves_good_slaves:2\r\n" +
+		"slave0:ip=1.2.3.4,port=6379,state=online,offset=100200300,lag=0\r\n" +
+		"slave1:ip=5.6.7.8,port=6379,state=wait_bgsave,offset=100200300,lag=0\r\n"
+	expInfo := &sdlgoredis.DbInfo{
+		Fields: sdlgoredis.DbInfoFields{
+			MasterRole:          true,
+			ConnectedReplicaCnt: 1,
+		},
+	}
+
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	info, err := db.Info()
+	assert.Nil(t, err)
+	assert.Equal(t, expInfo, info)
+	r.AssertExpectations(t)
+}
+
+func TestInfoOfStandaloneMasterRedisSuccessfully(t *testing.T) {
+	_, r, db := setupHaEnv(true)
+	redisInfo := "# Replication\r\n" +
+		"role:master\r\n" +
+		"connected_slaves:0\r\n" +
+		"min_slaves_good_slaves:0\r\n"
+	expInfo := &sdlgoredis.DbInfo{
+		Fields: sdlgoredis.DbInfoFields{
+			MasterRole:          true,
+			ConnectedReplicaCnt: 0,
+		},
+	}
+
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	info, err := db.Info()
+	assert.Nil(t, err)
+	assert.Equal(t, expInfo, info)
+	r.AssertExpectations(t)
+}
+
+func TestInfoWithGibberishContentSuccessfully(t *testing.T) {
+	_, r, db := setupHaEnv(true)
+	redisInfo := "!#¤%&?+?´-\r\n"
+	expInfo := &sdlgoredis.DbInfo{}
+
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	info, err := db.Info()
+	assert.Nil(t, err)
+	assert.Equal(t, expInfo, info)
+	r.AssertExpectations(t)
+}
+
+func TestInfoWithEmptyContentSuccessfully(t *testing.T) {
+	_, r, db := setupHaEnv(true)
+	var redisInfo string
+	expInfo := &sdlgoredis.DbInfo{
+		Fields: sdlgoredis.DbInfoFields{
+			MasterRole: false,
+		},
+	}
+
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	info, err := db.Info()
+	assert.Nil(t, err)
+	assert.Equal(t, expInfo, info)
+	r.AssertExpectations(t)
+}
+
+func TestStateWithMasterAndTwoSlaveRedisSuccessfully(t *testing.T) {
+	_, r, s, db := setupHaEnvWithSentinels(true)
+	redisMasterState := map[string]string{
+		"role-reported": "master",
+	}
+	redisSlavesState := make([]interface{}, 2)
+	redisSlavesState[0] = []interface{}{
+		"role-reported", "slave",
+		"ip", "10.20.30.40",
+		"port", "6379",
+		"flags", "slave",
+		"master-link-status", "up",
+	}
+	redisSlavesState[1] = []interface{}{
+		"master-link-status", "up",
+		"ip", "10.20.30.50",
+		"flags", "slave",
+		"port", "30000",
+		"role-reported", "slave",
+	}
+
+	expState := &sdlgoredis.DbState{
+		MasterDbState: sdlgoredis.MasterDbState{
+			Fields: sdlgoredis.MasterDbStateFields{
+				Role:           "master",
+				ReplicasCfgCnt: "2",
+			},
+		},
+		ReplicasDbState: &sdlgoredis.ReplicasDbState{
+			States: []*sdlgoredis.ReplicaDbState{
+				&sdlgoredis.ReplicaDbState{
+					Fields: sdlgoredis.ReplicaDbStateFields{
+						Role:             "slave",
+						Ip:               "10.20.30.40",
+						Port:             "6379",
+						MasterLinkStatus: "up",
+						Flags:            "slave",
+					},
+				},
+				&sdlgoredis.ReplicaDbState{
+					Fields: sdlgoredis.ReplicaDbStateFields{
+						Role:             "slave",
+						Ip:               "10.20.30.50",
+						Port:             "30000",
+						MasterLinkStatus: "up",
+						Flags:            "slave",
+					},
+				},
+			},
+		},
+	}
+
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, nil))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, nil))
+	ret, err := db.State()
+	assert.Nil(t, err)
+	assert.Equal(t, expState, ret)
+	r.AssertExpectations(t)
+}
+
+func TestStateWithMasterAndOneSlaveRedisFailureInMasterRedisCall(t *testing.T) {
+	_, r, s, db := setupHaEnvWithSentinels(true)
+	redisMasterState := map[string]string{}
+	redisSlavesState := make([]interface{}, 1)
+	redisSlavesState[0] = []interface{}{
+		"role-reported", "slave",
+		"ip", "10.20.30.40",
+		"port", "6379",
+		"flags", "slave",
+		"master-link-status", "up",
+	}
+
+	expState := &sdlgoredis.DbState{
+		MasterDbState: sdlgoredis.MasterDbState{
+			Err: errors.New("Some error"),
+		},
+		ReplicasDbState: &sdlgoredis.ReplicasDbState{
+			States: []*sdlgoredis.ReplicaDbState{
+				&sdlgoredis.ReplicaDbState{
+					Fields: sdlgoredis.ReplicaDbStateFields{
+						Role:             "slave",
+						Ip:               "10.20.30.40",
+						Port:             "6379",
+						MasterLinkStatus: "up",
+						Flags:            "slave",
+					},
+				},
+			},
+		},
+	}
+
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, errors.New("Some error")))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, nil))
+	ret, err := db.State()
+	assert.NotNil(t, err)
+	assert.Equal(t, expState, ret)
+	r.AssertExpectations(t)
+}
+
+func TestStateWithMasterAndOneSlaveRedisFailureInSlavesRedisCall(t *testing.T) {
+	_, r, s, db := setupHaEnvWithSentinels(true)
+	redisMasterState := map[string]string{
+		"role-reported": "master",
+	}
+	redisSlavesState := make([]interface{}, 1)
+	redisSlavesState[0] = []interface{}{}
+
+	expState := &sdlgoredis.DbState{
+		MasterDbState: sdlgoredis.MasterDbState{
+			Fields: sdlgoredis.MasterDbStateFields{
+				Role:           "master",
+				ReplicasCfgCnt: "2",
+			},
+		},
+		ReplicasDbState: &sdlgoredis.ReplicasDbState{
+			Err:    errors.New("Some error"),
+			States: []*sdlgoredis.ReplicaDbState{},
+		},
+	}
+
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, nil))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, errors.New("Some error")))
+	ret, err := db.State()
+	assert.NotNil(t, err)
+	assert.Equal(t, expState, ret)
+	r.AssertExpectations(t)
+}
+
+func TestStateWithSingleMasterRedisSuccessfully(t *testing.T) {
+	_, r, db := setupSingleEnv(true)
+	redisInfo := "# Replication\r\n" +
+		"role:master\r\n" +
+		"connected_slaves:0\r\n" +
+		"min_slaves_good_slaves:0\r\n"
+
+	expState := &sdlgoredis.DbState{
+		MasterDbState: sdlgoredis.MasterDbState{
+			Fields: sdlgoredis.MasterDbStateFields{
+				Role:  "master",
+				Flags: "master",
+			},
+		},
+	}
+
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	ret, err := db.State()
+	assert.Nil(t, err)
+	assert.Equal(t, expState, ret)
+	r.AssertExpectations(t)
+}
+
+func TestStateWithSingleMasterRedisFailureInInfoCall(t *testing.T) {
+	_, r, db := setupSingleEnv(true)
+	redisInfo := ""
+	expState := &sdlgoredis.DbState{}
+
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, errors.New("Some error")))
+	ret, err := db.State()
+	assert.NotNil(t, err)
+	assert.Equal(t, expState, ret)
+	r.AssertExpectations(t)
 }

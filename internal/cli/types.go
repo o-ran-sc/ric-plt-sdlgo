@@ -22,5 +22,22 @@
 
 package cli
 
-//Name of the SDL CLI application
+import "gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+
+//iDatabase is an interface towards database backend, for the time being
+//sdlgoredis.DB implements this interface.
+type iDatabase interface {
+	Info() (*sdlgoredis.DbInfo, error)
+	State() (*sdlgoredis.DbState, error)
+}
+
+//Database struct is a holder for the internal database instances.
+type Database struct {
+	Instances []iDatabase
+}
+
+//DbCreateCb callback function type to create a new database
+type DbCreateCb func() *Database
+
+//SdlCliApp constant defines the name of the SDL CLI application
 const SdlCliApp = "sdlcli"
