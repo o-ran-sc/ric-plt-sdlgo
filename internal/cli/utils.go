@@ -22,5 +22,15 @@
 
 package cli
 
-//SdlCliApp constant defines the name of the SDL CLI application
-const SdlCliApp = "sdlcli"
+import (
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+)
+
+func newDatabase() *internal.Database {
+	db := &internal.Database{}
+	for _, v := range sdlgoredis.Create() {
+		db.Instances = append(db.Instances, v)
+	}
+	return db
+}

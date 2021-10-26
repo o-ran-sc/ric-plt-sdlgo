@@ -34,5 +34,6 @@ func NewRootCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 		},
 	}
+	cmd.AddCommand(NewHealthCheckCmd())
 	return cmd
 }
