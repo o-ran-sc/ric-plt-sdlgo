@@ -22,18 +22,9 @@
 
 package cli
 
-import (
-	"github.com/spf13/cobra"
-)
+import "github.com/spf13/cobra"
 
-func NewRootCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   SdlCliApp,
-		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
-		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
-		Run: func(cmd *cobra.Command, args []string) {
-		},
-	}
-	cmd.AddCommand(NewHealthCheckCmd())
-	return cmd
+// NewHealthCheckCmdForTest is used only in unit tests to mock database.
+func NewHealthCheckCmdForTest(dbCreator DbCreateCb) *cobra.Command {
+	return newHealthCheckCmd(dbCreator)
 }
