@@ -34,6 +34,7 @@ type Sentinel struct {
 type IredisSentinelClient interface {
 	Master(name string) *redis.StringStringMapCmd
 	Slaves(name string) *redis.SliceCmd
+	Sentinels(name string) *redis.SliceCmd
 }
 
 type RedisSentinelCreateCb func(cfg *Config, addr string) *Sentinel
@@ -56,12 +57,17 @@ func (s *Sentinel) GetDbState() (*DbState, error) {
 	state := new(DbState)
 	mState, mErr := s.getMasterDbState()
 	rState, rErr := s.getReplicasState()
+	sState, sErr := s.getSentinelsState()
 	state.MasterDbState = *mState
 	state.ReplicasDbState = rState
-	if mErr == nil {
+	state.SentinelsDbState = sState
+	if mErr != nil {
+		return state, mErr
+	}
+	if rErr != nil {
 		return state, rErr
 	}
-	return state, mErr
+	return state, sErr
 }
 
 func (s *Sentinel) getMasterDbState() (*MasterDbState, error) {
@@ -105,6 +111,35 @@ func readReplicaState(redisSlaves []interface{}) *ReplicaDbState {
 			state.Fields.Role = redisSlaves[i+1].(string)
 		} else if redisSlaves[i].(string) == "master-link-status" {
 			state.Fields.MasterLinkStatus = redisSlaves[i+1].(string)
+		}
+	}
+	return state
+}
+
+func (s *Sentinel) getSentinelsState() (*SentinelsDbState, error) {
+	states := new(SentinelsDbState)
+	states.States = make([]*SentinelDbState, 0)
+
+	redisVal, redisErr := s.Sentinels(s.Cfg.masterName).Result()
+	if redisErr == nil {
+		for _, redisSentinel := range redisVal {
+			sentinelState := readSentinelState(redisSentinel.([]interface{}))
+			states.States = append(states.States, sentinelState)
+		}
+	}
+	states.Err = redisErr
+	return states, redisErr
+}
+
+func readSentinelState(redisSentinels []interface{}) *SentinelDbState {
+	state := new(SentinelDbState)
+	for i := 0; i < len(redisSentinels); i += 2 {
+		if redisSentinels[i].(string) == "ip" {
+			state.Fields.Ip = redisSentinels[i+1].(string)
+		} else if redisSentinels[i].(string) == "port" {
+			state.Fields.Port = redisSentinels[i+1].(string)
+		} else if redisSentinels[i].(string) == "flags" {
+			state.Fields.Flags = redisSentinels[i+1].(string)
 		}
 	}
 	return state
