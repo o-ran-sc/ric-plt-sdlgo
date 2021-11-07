@@ -68,6 +68,24 @@ func (ds *dbStateMock) addReplicaFields(role, ip, port, mls, flags string) {
 	ds.state.ReplicasDbState.States = append(ds.state.ReplicasDbState.States, newState)
 }
 
+func (ds *dbStateMock) setSentinelError(err error) {
+	if ds.state.SentinelsDbState == nil {
+		ds.state.SentinelsDbState = new(sdlgoredis.SentinelsDbState)
+	}
+	ds.state.SentinelsDbState.Err = err
+}
+
+func (ds *dbStateMock) addSentinelFields(ip, port, flags string) {
+	if ds.state.SentinelsDbState == nil {
+		ds.state.SentinelsDbState = new(sdlgoredis.SentinelsDbState)
+	}
+	newState := new(sdlgoredis.SentinelDbState)
+	newState.Fields.Ip = ip
+	newState.Fields.Port = port
+	newState.Fields.Flags = flags
+	ds.state.SentinelsDbState.States = append(ds.state.SentinelsDbState.States, newState)
+}
+
 func TestIsOnlineWhenSingleMasterSuccessfully(t *testing.T) {
 	st := setupDbState()
 	st.setMasterFields("master", "1.2.3.4", "60000", "0", "master")
@@ -119,6 +137,8 @@ func TestIsOnlineWhenMasterAndTwoReplicasSuccessfully(t *testing.T) {
 	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
 	err := st.state.IsOnline()
 	assert.Nil(t, err)
 }
@@ -129,7 +149,20 @@ func TestIsOnlineWhenMasterAndTwoReplicasFailureIfErrorHasSet(t *testing.T) {
 	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
 	st.setReplicaError(testErr)
+	err := st.state.IsOnline()
+	assert.Equal(t, testErr, err)
+}
+
+func TestIsOnlineWhenMasterAndOneReplicaFailureIfSentinelErrorHasSet(t *testing.T) {
+	testErr := errors.New("Some error")
+	st := setupDbState()
+	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.setSentinelError(testErr)
 	err := st.state.IsOnline()
 	assert.Equal(t, testErr, err)
 }
@@ -140,6 +173,8 @@ func TestIsOnlineWhenMasterAndTwoReplicasFailureIfNotSlaveRole(t *testing.T) {
 	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("not-slave", "6.7.8.10", "3450", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
 	err := st.state.IsOnline()
 	assert.Equal(t, expErr, err)
 }
@@ -150,6 +185,8 @@ func TestIsOnlineWhenMasterAndTwoReplicasFailureIfMasterLinkDown(t *testing.T) {
 	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "nok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
 	err := st.state.IsOnline()
 	assert.Equal(t, expErr, err)
 }
@@ -160,6 +197,18 @@ func TestIsOnlineWhenMasterAndTwoReplicasFailureIfErrorFlags(t *testing.T) {
 	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "any-error,slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
+	err := st.state.IsOnline()
+	assert.Equal(t, expErr, err)
+}
+
+func TestIsOnlineWhenMasterAndOneReplicaFailureIfSentinelErrorFlags(t *testing.T) {
+	expErr := errors.New("Sentinel flags are 'any-error,sentinel', expected 'sentinel'")
+	st := setupDbState()
+	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "112345", "any-error,sentinel")
 	err := st.state.IsOnline()
 	assert.Equal(t, expErr, err)
 }
@@ -169,6 +218,8 @@ func TestGetAddressReplicasSuccessfully(t *testing.T) {
 	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
 	addr := st.state.ReplicasDbState.States[0].GetAddress()
 	assert.Equal(t, "6.7.8.9:1234", addr)
 	addr = st.state.ReplicasDbState.States[1].GetAddress()
@@ -180,8 +231,36 @@ func TestGetAddressReplicasNoIpPort(t *testing.T) {
 	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "", "", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
 	addr := st.state.ReplicasDbState.States[0].GetAddress()
 	assert.Equal(t, "", addr)
 	addr = st.state.ReplicasDbState.States[1].GetAddress()
 	assert.Equal(t, "6.7.8.10:3450", addr)
+}
+
+func TestGetAddressSentinelsSuccessfully(t *testing.T) {
+	st := setupDbState()
+	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
+	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
+	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
+	addr := st.state.SentinelsDbState.States[0].GetAddress()
+	assert.Equal(t, "6.7.8.9:11234", addr)
+	addr = st.state.SentinelsDbState.States[1].GetAddress()
+	assert.Equal(t, "6.7.8.10:13450", addr)
+}
+
+func TestGetAddressSentinelsNoIpPort(t *testing.T) {
+	st := setupDbState()
+	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.addReplicaFields("slave", "", "", "ok", "slave")
+	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
+	st.addSentinelFields("", "", "sentinel")
+	st.addSentinelFields("6.7.8.10", "13450", "sentinel")
+	addr := st.state.SentinelsDbState.States[0].GetAddress()
+	assert.Equal(t, "", addr)
+	addr = st.state.SentinelsDbState.States[1].GetAddress()
+	assert.Equal(t, "6.7.8.10:13450", addr)
 }

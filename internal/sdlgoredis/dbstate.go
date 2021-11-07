@@ -29,8 +29,9 @@ import (
 //DbState struct is a holder for DB state information, which is received from
 //sdlgoredis sentinel 'Master' and 'Slaves' calls output.
 type DbState struct {
-	MasterDbState   MasterDbState
-	ReplicasDbState *ReplicasDbState
+	MasterDbState    MasterDbState
+	ReplicasDbState  *ReplicasDbState
+	SentinelsDbState *SentinelsDbState
 }
 
 //MasterDbState struct is a holder for master Redis state information.
@@ -48,6 +49,17 @@ type ReplicasDbState struct {
 //ReplicaDbState struct is a holder for one Redis slave state information.
 type ReplicaDbState struct {
 	Fields ReplicaDbStateFields
+}
+
+//SentinelsDbState struct is a holder for Redis sentinels state information.
+type SentinelsDbState struct {
+	Err    error
+	States []*SentinelDbState
+}
+
+//SentinelDbState struct is a holder for one Redis sentinel state information.
+type SentinelDbState struct {
+	Fields SentinelDbStateFields
 }
 
 //MasterDbStateFields struct is a holder for master Redis state information
@@ -69,12 +81,25 @@ type ReplicaDbStateFields struct {
 	Flags            string
 }
 
+//SentinelDbStateFields struct is a holder for sentinel Redis state information
+//fields which are read from sdlgoredis sentinel 'Sentinels' call output.
+type SentinelDbStateFields struct {
+	Ip    string
+	Port  string
+	Flags string
+}
+
 func (dbst *DbState) IsOnline() error {
 	if err := dbst.MasterDbState.IsOnline(); err != nil {
 		return err
 	}
 	if dbst.ReplicasDbState != nil {
 		if err := dbst.ReplicasDbState.IsOnline(); err != nil {
+			return err
+		}
+	}
+	if dbst.SentinelsDbState != nil {
+		if err := dbst.SentinelsDbState.IsOnline(); err != nil {
 			return err
 		}
 	}
@@ -132,6 +157,33 @@ func (rdbst *ReplicaDbState) IsOnline() error {
 func (rdbst *ReplicaDbState) GetAddress() string {
 	if rdbst.Fields.Ip != "" || rdbst.Fields.Port != "" {
 		return rdbst.Fields.Ip + ":" + rdbst.Fields.Port
+	} else {
+		return ""
+	}
+}
+
+func (sdbst *SentinelsDbState) IsOnline() error {
+	if sdbst.Err != nil {
+		return sdbst.Err
+	}
+	for _, state := range sdbst.States {
+		if err := state.IsOnline(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (sdbst *SentinelDbState) IsOnline() error {
+	if sdbst.Fields.Flags != "sentinel" {
+		return fmt.Errorf("Sentinel flags are '%s', expected 'sentinel'", sdbst.Fields.Flags)
+	}
+	return nil
+}
+
+func (sdbst *SentinelDbState) GetAddress() string {
+	if sdbst.Fields.Ip != "" || sdbst.Fields.Port != "" {
+		return sdbst.Fields.Ip + ":" + sdbst.Fields.Port
 	} else {
 		return ""
 	}
