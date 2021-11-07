@@ -149,7 +149,13 @@ func (m *MockRedisSentinel) Master(name string) *redis.StringStringMapCmd {
 	a := m.Called(name)
 	return a.Get(0).(*redis.StringStringMapCmd)
 }
+
 func (m *MockRedisSentinel) Slaves(name string) *redis.SliceCmd {
+	a := m.Called(name)
+	return a.Get(0).(*redis.SliceCmd)
+}
+
+func (m *MockRedisSentinel) Sentinels(name string) *redis.SliceCmd {
 	a := m.Called(name)
 	return a.Get(0).(*redis.SliceCmd)
 }
@@ -1138,6 +1144,17 @@ func TestStateWithMasterAndTwoSlaveRedisSuccessfully(t *testing.T) {
 		"port", "30000",
 		"role-reported", "slave",
 	}
+	redisSentinelsState := make([]interface{}, 2)
+	redisSentinelsState[0] = []interface{}{
+		"ip", "10.20.30.40",
+		"port", "26379",
+		"flags", "sentinel",
+	}
+	redisSentinelsState[1] = []interface{}{
+		"ip", "10.20.30.50",
+		"flags", "sentinel",
+		"port", "30001",
+	}
 
 	expState := &sdlgoredis.DbState{
 		MasterDbState: sdlgoredis.MasterDbState{
@@ -1167,10 +1184,29 @@ func TestStateWithMasterAndTwoSlaveRedisSuccessfully(t *testing.T) {
 				},
 			},
 		},
+		SentinelsDbState: &sdlgoredis.SentinelsDbState{
+			States: []*sdlgoredis.SentinelDbState{
+				&sdlgoredis.SentinelDbState{
+					Fields: sdlgoredis.SentinelDbStateFields{
+						Ip:    "10.20.30.40",
+						Port:  "26379",
+						Flags: "sentinel",
+					},
+				},
+				&sdlgoredis.SentinelDbState{
+					Fields: sdlgoredis.SentinelDbStateFields{
+						Ip:    "10.20.30.50",
+						Port:  "30001",
+						Flags: "sentinel",
+					},
+				},
+			},
+		},
 	}
 
 	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, nil))
 	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, nil))
+	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState, nil))
 	ret, err := db.State()
 	assert.Nil(t, err)
 	assert.Equal(t, expState, ret)
@@ -1187,6 +1223,12 @@ func TestStateWithMasterAndOneSlaveRedisFailureInMasterRedisCall(t *testing.T) {
 		"port", "6379",
 		"flags", "slave",
 		"master-link-status", "up",
+	}
+	redisSentinelsState := make([]interface{}, 1)
+	redisSentinelsState[0] = []interface{}{
+		"ip", "10.20.30.40",
+		"port", "26379",
+		"flags", "sentinel",
 	}
 
 	expState := &sdlgoredis.DbState{
@@ -1206,10 +1248,22 @@ func TestStateWithMasterAndOneSlaveRedisFailureInMasterRedisCall(t *testing.T) {
 				},
 			},
 		},
+		SentinelsDbState: &sdlgoredis.SentinelsDbState{
+			States: []*sdlgoredis.SentinelDbState{
+				&sdlgoredis.SentinelDbState{
+					Fields: sdlgoredis.SentinelDbStateFields{
+						Ip:    "10.20.30.40",
+						Port:  "26379",
+						Flags: "sentinel",
+					},
+				},
+			},
+		},
 	}
 
 	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, errors.New("Some error")))
 	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, nil))
+	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState, nil))
 	ret, err := db.State()
 	assert.NotNil(t, err)
 	assert.Equal(t, expState, ret)
@@ -1223,6 +1277,12 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSlavesRedisCall(t *testing.T) {
 	}
 	redisSlavesState := make([]interface{}, 1)
 	redisSlavesState[0] = []interface{}{}
+	redisSentinelsState := make([]interface{}, 1)
+	redisSentinelsState[0] = []interface{}{
+		"ip", "10.20.30.40",
+		"port", "26379",
+		"flags", "sentinel",
+	}
 
 	expState := &sdlgoredis.DbState{
 		MasterDbState: sdlgoredis.MasterDbState{
@@ -1234,10 +1294,76 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSlavesRedisCall(t *testing.T) {
 			Err:    errors.New("Some error"),
 			States: []*sdlgoredis.ReplicaDbState{},
 		},
+		SentinelsDbState: &sdlgoredis.SentinelsDbState{
+			States: []*sdlgoredis.SentinelDbState{
+				&sdlgoredis.SentinelDbState{
+					Fields: sdlgoredis.SentinelDbStateFields{
+						Ip:    "10.20.30.40",
+						Port:  "26379",
+						Flags: "sentinel",
+					},
+				},
+			},
+		},
 	}
 
 	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, nil))
 	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, errors.New("Some error")))
+	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState, nil))
+	ret, err := db.State()
+	assert.NotNil(t, err)
+	assert.Equal(t, expState, ret)
+	r.AssertExpectations(t)
+}
+
+func TestStateWithMasterAndOneSlaveRedisFailureInSentinelsRedisCall(t *testing.T) {
+	_, r, s, db := setupHaEnvWithSentinels(true)
+	redisMasterState := map[string]string{
+		"role-reported": "master",
+	}
+	redisSlavesState := make([]interface{}, 1)
+	redisSlavesState[0] = []interface{}{
+		"role-reported", "slave",
+		"ip", "10.20.30.40",
+		"port", "6379",
+		"flags", "slave",
+		"master-link-status", "up",
+	}
+	redisSentinelsState := make([]interface{}, 1)
+	redisSentinelsState[0] = []interface{}{
+		"ip", "10.20.30.40",
+		"port", "26379",
+		"flags", "sentinel",
+	}
+
+	expState := &sdlgoredis.DbState{
+		MasterDbState: sdlgoredis.MasterDbState{
+			Fields: sdlgoredis.MasterDbStateFields{
+				Role: "master",
+			},
+		},
+		ReplicasDbState: &sdlgoredis.ReplicasDbState{
+			States: []*sdlgoredis.ReplicaDbState{
+				&sdlgoredis.ReplicaDbState{
+					Fields: sdlgoredis.ReplicaDbStateFields{
+						Role:             "slave",
+						Ip:               "10.20.30.40",
+						Port:             "6379",
+						MasterLinkStatus: "up",
+						Flags:            "slave",
+					},
+				},
+			},
+		},
+		SentinelsDbState: &sdlgoredis.SentinelsDbState{
+			Err:    errors.New("Some error"),
+			States: []*sdlgoredis.SentinelDbState{},
+		},
+	}
+
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, nil))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, nil))
+	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState, errors.New("Some error")))
 	ret, err := db.State()
 	assert.NotNil(t, err)
 	assert.Equal(t, expState, ret)

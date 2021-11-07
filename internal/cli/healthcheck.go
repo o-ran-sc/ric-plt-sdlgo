@@ -96,6 +96,15 @@ func writeStateResults(dbStates []sdlgoredis.DbState) string {
 				}
 			}
 		}
+		if dbState.SentinelsDbState != nil {
+			for k, sInfo := range dbState.SentinelsDbState.States {
+				err := sInfo.IsOnline()
+				if err != nil {
+					str = str + fmt.Sprintf("    Sentinel #%d (%s): NOK\n", (k+1), sInfo.GetAddress())
+					str = str + fmt.Sprintf("      %s\n", err.Error())
+				}
+			}
+		}
 	}
 	if anyErr == nil {
 		str = fmt.Sprintf("Overall status: OK\n\n") + str
