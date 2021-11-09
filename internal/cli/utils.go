@@ -23,13 +23,23 @@
 package cli
 
 import (
+	"bytes"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 )
 
+var buf bytes.Buffer
+
 func newDatabase() *Database {
 	db := &Database{}
+	sdlgoredis.SetDbLogger(&buf)
 	for _, v := range sdlgoredis.Create() {
 		db.Instances = append(db.Instances, v)
 	}
 	return db
+}
+
+func newSdl() *sdlgo.SyncStorage {
+	sdlgoredis.SetDbLogger(&buf)
+	return sdlgo.NewSyncStorage()
 }

@@ -26,6 +26,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	NewRootCmd = newRootCmd
+	NewHealthCheckCmd = newHealthCheckCmd
+	NewKeysCmdForTest = newKeysCmd
+)
+
 // NewHealthCheckCmdForTest is used only in unit tests to mock database.
 func NewHealthCheckCmdForTest(dbCreateCb DbCreateCb) *cobra.Command {
 	return newHealthCheckCmd(dbCreateCb)

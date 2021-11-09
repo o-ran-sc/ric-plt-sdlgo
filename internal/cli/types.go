@@ -22,7 +22,10 @@
 
 package cli
 
-import "gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+import (
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+)
 
 //iDatabase is an interface towards database backend, for the time being
 //sdlgoredis.DB implements this interface.
@@ -38,6 +41,26 @@ type Database struct {
 
 //DbCreateCb callback function type to create a new database
 type DbCreateCb func() *Database
+
+type SdlCreateCb func() *sdlgo.SyncStorage
+
+type Cli struct {
+	sdl     SdlCreateCb
+	ns      string
+	pattern string
+}
+
+func newCli(sdl SdlCreateCb, ns string, pattern string) Cli {
+	return Cli{
+		sdl: sdl,
+		ns: ns,
+		pattern: pattern,
+	}
+}
+
+func (c Cli) ListKeys() ([]string, error) {
+	return c.sdl().ListKeys(c.ns, c.pattern)
+}
 
 //SdlCliApp constant defines the name of the SDL CLI application
 const SdlCliApp = "sdlcli"

@@ -139,7 +139,7 @@ func TestCliHealthCheckCanShowHelp(t *testing.T) {
 
 	for _, test := range tests {
 		buf := new(bytes.Buffer)
-		cmd := cli.NewHealthCheckCmd()
+		cmd := cli.NewHealthCheckCmd(newMockDatabase)
 		cmd.SetOut(buf)
 		cmd.SetArgs([]string{test.args})
 

@@ -20,29 +20,34 @@
  * platform project (RICP).
  */
 
-package cli
+package cli_test
 
 import (
-	"fmt"
-	"os"
-	"github.com/spf13/cobra"
+	"bytes"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/cli"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/mocks"
+	"github.com/stretchr/testify/assert"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
+	// "github.com/stretchr/testify/mock"
+	"testing"
 )
 
-var rootCmd = newRootCmd()
+var dbMock *mocks.MockDB
 
-func newRootCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   SdlCliApp,
-		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
-		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
-		Run: func(cmd *cobra.Command, args []string) {
-		},
-	}
+func mockSdlDatabase() *sdlgo.SyncStorage {
+	dbMock = new(mocks.MockDB)
+	return sdlgo.newSyncStorageForTest(dbMock)
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+func TestKeysCmd(t *testing.T) {
+	buf := new(bytes.Buffer)
+	cmd := cli.NewKeysCmdForTest(mockSdlDatabase)
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	err := cmd.Execute()
+
+	result := buf.String()
+	assert.Nil(t, err)
+	assert.Contains(t, result, "FIXME runListKeys")
 }
