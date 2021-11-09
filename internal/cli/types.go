@@ -39,5 +39,27 @@ type Database struct {
 //DbCreateCb callback function type to create a new database
 type DbCreateCb func() *Database
 
+//iSyncStorage is an interface towards SDL SyncStorage API
+type ISyncStorage interface {
+	ListKeys(ns string, pattern string) ([]string, error)
+}
+
+//SyncStorageCreateCb callback function type to create a new SyncStorageInterface
+type SyncStorageCreateCb func() ISyncStorage
+
+//keysArgs struct is used for keys command arguments.
+type keysArgs struct {
+	ns      string
+	pattern string
+}
+
+//newKeysArgs constructs a new keysArgs struct.
+func newKeysArgs(ns string, pattern string) keysArgs {
+	return keysArgs{
+		ns: ns,
+		pattern: pattern,
+	}
+}
+
 //SdlCliApp constant defines the name of the SDL CLI application
 const SdlCliApp = "sdlcli"

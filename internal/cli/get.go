@@ -23,26 +23,29 @@
 package cli
 
 import (
-	"fmt"
-	"os"
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = newRootCmd()
+var	getCmd = newGetCmd()
 
-func newRootCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   SdlCliApp,
-		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
-		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
-		Run: func(cmd *cobra.Command, args []string) {
-		},
-	}
+func init() {
+	rootCmd.AddCommand(getCmd)
 }
 
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+var (
+	getLong = `Display one or many resources.
+
+Prints important information about the specified resources.`
+
+	getExample = `  # List keys in the given namespace.
+  sdlcli get keys sdlns`
+)
+
+func newGetCmd() *cobra.Command {
+	return &cobra.Command {
+		Use:   "get",
+		Short: "Display one or many resources",
+		Long:  getLong,
+		Example: getExample,
 	}
 }
