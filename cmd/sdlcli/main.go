@@ -23,15 +23,9 @@
 package main
 
 import (
-	"fmt"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/cli"
-	"os"
 )
 
 func main() {
-	root := cli.NewRootCmd()
-	if err := root.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	cli.Execute()
 }

@@ -23,17 +23,26 @@
 package cli
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
+	"os"
 )
 
-func NewRootCmd() *cobra.Command {
-	cmd := &cobra.Command{
+var rootCmd = newRootCmd()
+
+func newRootCmd() *cobra.Command {
+	return &cobra.Command{
 		Use:   SdlCliApp,
 		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
 		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
 		Run: func(cmd *cobra.Command, args []string) {
 		},
 	}
-	cmd.AddCommand(NewHealthCheckCmd())
-	return cmd
+}
+
+func Execute() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }

@@ -23,15 +23,14 @@
 package cli
 
 import (
-	"bytes"
 	"fmt"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 	"github.com/spf13/cobra"
 	"os"
 )
 
-func NewHealthCheckCmd() *cobra.Command {
-	return newHealthCheckCmd(newDatabase)
+func init() {
+	rootCmd.AddCommand(newHealthCheckCmd(newDatabase))
 }
 
 func newHealthCheckCmd(dbCreateCb DbCreateCb) *cobra.Command {
@@ -40,8 +39,6 @@ func newHealthCheckCmd(dbCreateCb DbCreateCb) *cobra.Command {
 		Short: "healthcheck - validates database healthiness",
 		Long:  `healthcheck - validates database healthiness`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var buf bytes.Buffer
-			sdlgoredis.SetDbLogger(&buf)
 			out, err := runHealthCheck(dbCreateCb)
 			cmd.Println(out)
 			if err != nil {

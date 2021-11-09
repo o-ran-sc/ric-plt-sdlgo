@@ -22,9 +22,30 @@
 
 package cli
 
-var (
-	NewRootCmd        = newRootCmd
-	NewHealthCheckCmd = newHealthCheckCmd
-	NewKeysCmdForTest = newKeysCmd
-	NewGetCmdForTest  = newGetCmd
+import (
+	"github.com/spf13/cobra"
 )
+
+var getCmd = newGetCmd()
+
+func init() {
+	rootCmd.AddCommand(getCmd)
+}
+
+var (
+	getLong = `Display one or many resources.
+
+Prints important information about the specified resources.`
+
+	getExample = `  # List keys in the given namespace.
+  sdlcli get keys sdlns`
+)
+
+func newGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "get",
+		Short:   "Display one or many resources",
+		Long:    getLong,
+		Example: getExample,
+	}
+}

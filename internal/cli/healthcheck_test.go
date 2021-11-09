@@ -115,7 +115,7 @@ func newMockDatabase() *cli.Database {
 
 func runHcCli() (string, error) {
 	buf := new(bytes.Buffer)
-	cmd := cli.NewHealthCheckCmdForTest(newMockDatabase)
+	cmd := cli.NewHealthCheckCmd(newMockDatabase)
 	cmd.SetOut(buf)
 
 	err := cmd.Execute()
@@ -139,7 +139,7 @@ func TestCliHealthCheckCanShowHelp(t *testing.T) {
 
 	for _, test := range tests {
 		buf := new(bytes.Buffer)
-		cmd := cli.NewHealthCheckCmd()
+		cmd := cli.NewHealthCheckCmd(newMockDatabase)
 		cmd.SetOut(buf)
 		cmd.SetArgs([]string{test.args})
 
@@ -206,7 +206,7 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenDbStateQueryFails(t
 	expCliErr := errors.New("SDL CLI error: Some error")
 
 	buf := new(bytes.Buffer)
-	cmd := cli.NewHealthCheckCmdForTest(newMockDatabase)
+	cmd := cli.NewHealthCheckCmd(newMockDatabase)
 	cmd.SetErr(buf)
 
 	err := cmd.Execute()
