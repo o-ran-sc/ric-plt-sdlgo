@@ -203,7 +203,6 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneSentinelStateNot
 func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenDbStateQueryFails(t *testing.T) {
 	setupHcMockMasterDb("10.20.30.40", "6379")
 	hcMocks.dbErr = errors.New("Some error")
-	expCliErr := errors.New("SDL CLI error: Some error")
 
 	buf := new(bytes.Buffer)
 	cmd := cli.NewHealthCheckCmd(newMockDatabase)
@@ -212,8 +211,8 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenDbStateQueryFails(t
 	err := cmd.Execute()
 	stderr := buf.String()
 
-	assert.Equal(t, expCliErr, err)
-	assert.Contains(t, stderr, "Error: "+expCliErr.Error())
+	assert.Equal(t, hcMocks.dbErr, err)
+	assert.Contains(t, stderr, "Error: "+hcMocks.dbErr.Error())
 }
 
 func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectlyWhenDbStateIsFromReplicaOnly(t *testing.T) {
