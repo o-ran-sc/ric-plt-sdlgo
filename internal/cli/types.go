@@ -39,5 +39,13 @@ type Database struct {
 //DbCreateCb callback function type to create a new database
 type DbCreateCb func() *Database
 
+//iSyncStorage is an interface towards SDL SyncStorage API
+type ISyncStorage interface {
+	Set(ns string, pairs ...interface{}) error
+}
+
+//SyncStorageCreateCb callback function type to create a new SyncStorageInterface
+type SyncStorageCreateCb func() ISyncStorage
+
 //SdlCliApp constant defines the name of the SDL CLI application
 const SdlCliApp = "sdlcli"
