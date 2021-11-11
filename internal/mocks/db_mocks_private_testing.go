@@ -49,3 +49,8 @@ func (m *MockSdlApi) ListKeys(ns string, pattern string) ([]string, error) {
 	a := m.Called(ns, pattern)
 	return a.Get(0).([]string), a.Error(1)
 }
+
+func (m *MockSdlApi) Set(ns string, pairs ...interface{}) error {
+	a := m.Called(ns, pairs)
+	return a.Error(0)
+}

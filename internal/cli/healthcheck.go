@@ -58,7 +58,7 @@ func runHealthCheck(dbCreateCb DbCreateCb) (string, error) {
 	for _, dbInst := range dbCreateCb().Instances {
 		info, err := dbInst.State()
 		if err != nil {
-			anyErr = fmt.Errorf("SDL CLI error: %v", err)
+			anyErr = err
 		}
 		states = append(states, *info)
 	}

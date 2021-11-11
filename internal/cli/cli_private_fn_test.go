@@ -27,4 +27,5 @@ var (
 	NewHealthCheckCmd = newHealthCheckCmd
 	NewKeysCmdForTest = newKeysCmd
 	NewGetCmdForTest  = newGetCmd
+	NewSetCmdForTest  = newSetCmd
 )

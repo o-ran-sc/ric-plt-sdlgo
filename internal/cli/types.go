@@ -42,6 +42,7 @@ type DbCreateCb func() *Database
 //iSyncStorage is an interface towards SDL SyncStorage API
 type ISyncStorage interface {
 	ListKeys(ns string, pattern string) ([]string, error)
+	Set(ns string, pairs ...interface{}) error
 }
 
 //SyncStorageCreateCb callback function type to create a new SyncStorageInterface
