@@ -40,3 +40,12 @@ func (m *MockDB) State() (*sdlgoredis.DbState, error) {
 	a := m.Called()
 	return a.Get(0).(*sdlgoredis.DbState), a.Error(1)
 }
+
+type MockSdlApi struct {
+	mock.Mock
+}
+
+func (m *MockSdlApi) Set(ns string, pairs ...interface{}) error {
+	a := m.Called(ns, pairs)
+	return a.Error(0)
+}
