@@ -23,18 +23,35 @@
 package cli
 
 import (
+	"bytes"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
 	"github.com/spf13/cobra"
+	"os"
 )
 
-func NewRootCmd() *cobra.Command {
+func NewSetCmd() *cobra.Command {
+	return newSetCmd(func() ISyncStorage {
+		return sdlgo.NewSyncStorage()
+	})
+}
+
+func newSetCmd(sdlCreateCb SyncStorageCreateCb) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   SdlCliApp,
-		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
-		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
-		Run: func(cmd *cobra.Command, args []string) {
+		Use:   "set",
+		Short: "set - set key-value pair to SDL DB",
+		Long:  `set - set key-value pair to SDL DB`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var buf bytes.Buffer
+			sdlgoredis.SetDbLogger(&buf)
+			return runSet(sdlCreateCb)
 		},
 	}
-	cmd.AddCommand(NewHealthCheckCmd())
-	cmd.AddCommand(NewSetCmd())
+	cmd.SetOut(os.Stdout)
 	return cmd
+}
+
+func runSet(sdlCreateCb SyncStorageCreateCb) error {
+	sdl := sdlCreateCb()
+	return sdl.Set("some-ns", "some-key", "some-value")
 }

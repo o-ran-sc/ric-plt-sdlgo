@@ -30,3 +30,8 @@ import (
 func NewHealthCheckCmdForTest(dbCreateCb DbCreateCb) *cobra.Command {
 	return newHealthCheckCmd(dbCreateCb)
 }
+
+// NewSetCmdForTest is used only in unit tests to mock SDL API.
+func NewSetCmdForTest(sdlCreateCb SyncStorageCreateCb) *cobra.Command {
+	return newSetCmd(sdlCreateCb)
+}
