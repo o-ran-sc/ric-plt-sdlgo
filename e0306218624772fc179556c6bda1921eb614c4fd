@@ -88,6 +88,24 @@
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "de55e669_d3201b52",
+        "filename": "internal/cli/cli_private_fn_test.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-11-15T10:43:43Z",
+      "side": 1,
+      "message": "OK",
+      "parentUuid": "d94f77e5_dd47e4d7",
+      "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "35205859_724ea6cb",
@@ -123,6 +141,24 @@
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "abc24e7f_d0d82274",
+        "filename": "internal/cli/keys.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-11-15T10:43:43Z",
+      "side": 1,
+      "message": "OK. Good idea Petri to use cobra.RangeArgs to validate max arguments count.",
+      "parentUuid": "687c866e_433de331",
+      "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "ce0b5a3d_778acd10",
@@ -154,6 +190,24 @@
       "side": 1,
       "message": "I think this would require some new help text implementation. Maybe I\u0027ll do this later. I\u0027ll check how this works.",
       "parentUuid": "ce0b5a3d_778acd10",
+      "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "43dd06e2_ff778d54",
+        "filename": "internal/cli/keys.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 76,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-11-15T10:43:43Z",
+      "side": 1,
+      "message": "OK. Let\u0027s think this later.",
+      "parentUuid": "470a7e7a_5187fb31",
       "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
