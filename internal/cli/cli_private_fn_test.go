@@ -23,8 +23,9 @@
 package cli
 
 var (
-	NewRootCmd        = newRootCmd
-	NewHealthCheckCmd = newHealthCheckCmd
-	NewKeysCmdForTest = newKeysCmd
-	NewGetCmdForTest  = newGetCmd
+	NewRootCmd          = newRootCmd
+	NewHealthCheckCmd   = newHealthCheckCmd
+	NewKeysCmdForTest   = newKeysCmd
+	NewGetCmdForTest    = newGetCmd
+	NewRemoveCmdForTest = newRemoveCmd
 )
