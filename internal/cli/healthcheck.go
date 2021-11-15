@@ -36,8 +36,9 @@ func init() {
 func newHealthCheckCmd(dbCreateCb DbCreateCb) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "healthcheck",
-		Short: "healthcheck - validates database healthiness",
-		Long:  `healthcheck - validates database healthiness`,
+		Short: "Validate database healthiness",
+		Long:  `Validate database healthiness`,
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out, err := runHealthCheck(dbCreateCb)
 			cmd.Println(out)
@@ -58,7 +59,7 @@ func runHealthCheck(dbCreateCb DbCreateCb) (string, error) {
 	for _, dbInst := range dbCreateCb().Instances {
 		info, err := dbInst.State()
 		if err != nil {
-			anyErr = fmt.Errorf("SDL CLI error: %v", err)
+			anyErr = err
 		}
 		states = append(states, *info)
 	}

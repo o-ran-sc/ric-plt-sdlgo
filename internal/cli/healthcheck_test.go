@@ -127,6 +127,7 @@ func TestCliHealthCheckCanShowHelp(t *testing.T) {
 	var expOkErr error
 	expHelp := "Usage:\n  " + "healthcheck [flags]"
 	expNokErr := errors.New("unknown flag: --some-unknown-flag")
+	expArgCntErr := errors.New("accepts 0 arg(s), received 1")
 	tests := []struct {
 		args      string
 		expErr    error
@@ -135,6 +136,7 @@ func TestCliHealthCheckCanShowHelp(t *testing.T) {
 		{args: "-h", expErr: expOkErr, expOutput: expHelp},
 		{args: "--help", expErr: expOkErr, expOutput: expHelp},
 		{args: "--some-unknown-flag", expErr: expNokErr, expOutput: expHelp},
+		{args: "some-extra-argument", expErr: expArgCntErr, expOutput: expHelp},
 	}
 
 	for _, test := range tests {
@@ -203,7 +205,6 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneSentinelStateNot
 func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenDbStateQueryFails(t *testing.T) {
 	setupHcMockMasterDb("10.20.30.40", "6379")
 	hcMocks.dbErr = errors.New("Some error")
-	expCliErr := errors.New("SDL CLI error: Some error")
 
 	buf := new(bytes.Buffer)
 	cmd := cli.NewHealthCheckCmd(newMockDatabase)
@@ -212,8 +213,8 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenDbStateQueryFails(t
 	err := cmd.Execute()
 	stderr := buf.String()
 
-	assert.Equal(t, expCliErr, err)
-	assert.Contains(t, stderr, "Error: "+expCliErr.Error())
+	assert.Equal(t, hcMocks.dbErr, err)
+	assert.Contains(t, stderr, "Error: "+hcMocks.dbErr.Error())
 }
 
 func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectlyWhenDbStateIsFromReplicaOnly(t *testing.T) {
