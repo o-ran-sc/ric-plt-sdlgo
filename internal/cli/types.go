@@ -43,6 +43,7 @@ type DbCreateCb func() *Database
 type ISyncStorage interface {
 	ListKeys(ns string, pattern string) ([]string, error)
 	Set(ns string, pairs ...interface{}) error
+	Remove(ns string, keys []string) error
 }
 
 //SyncStorageCreateCb callback function type to create a new SyncStorageInterface

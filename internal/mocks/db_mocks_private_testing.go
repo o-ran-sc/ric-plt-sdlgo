@@ -54,3 +54,8 @@ func (m *MockSdlApi) Set(ns string, pairs ...interface{}) error {
 	a := m.Called(ns, pairs)
 	return a.Error(0)
 }
+
+func (m *MockSdlApi) Remove(ns string, keys []string) error {
+	a := m.Called(ns, keys)
+	return a.Error(0)
+}
