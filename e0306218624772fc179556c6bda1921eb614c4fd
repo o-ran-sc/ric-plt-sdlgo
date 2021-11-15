@@ -35,6 +35,24 @@
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "46c09fb8_729bcf37",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 3
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-15T09:19:01Z",
+      "side": 1,
+      "message": "yes, I will run fmt formatting.",
+      "parentUuid": "11889ae7_f35270da",
+      "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "db08a36c_1bef7e2f",
@@ -48,6 +66,24 @@
       "writtenOn": "2021-11-14T20:41:44Z",
       "side": 1,
       "message": "If you prefer above global variables, I think NewHealthCheckCmdForTest() can be removed here and its usage in unit tests can be replaced by NewHealthCheckCmd variable.",
+      "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "d94f77e5_dd47e4d7",
+        "filename": "internal/cli/cli_private_fn_test.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-15T09:19:01Z",
+      "side": 1,
+      "message": "I\u0027ll change this one.",
+      "parentUuid": "db08a36c_1bef7e2f",
       "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     },
@@ -71,6 +107,24 @@
     {
       "unresolved": true,
       "key": {
+        "uuid": "687c866e_433de331",
+        "filename": "internal/cli/keys.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-15T09:19:01Z",
+      "side": 1,
+      "message": "Good point. I\u0027ll add max args checking and test case for that.",
+      "parentUuid": "35205859_724ea6cb",
+      "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
         "uuid": "ce0b5a3d_778acd10",
         "filename": "internal/cli/keys.go",
         "patchSetId": 3
@@ -82,6 +136,24 @@
       "writtenOn": "2021-11-14T20:41:44Z",
       "side": 1,
       "message": "If we hit for some reason SDL error, sdlcli returns return code 1, which is good instead of returning success (0). Only minor issue is that stderr log contains many times error\u0027s root cause string, in below\u0027s example \"dial tcp: lookup foobar: no such host\" is seen multiple times. Not sure can we easily avoid having it twice. You can ignore this comment if fixing of it is too complicated. Here is an example output sdlcli stderr output:\n...\nlookup foobar: no such host\nError: dial tcp: lookup foobar: no such host\nUsage:\n  sdlcli get keys \u003cnamespace\u003e [pattern|default \u0027*\u0027] [flags]\n...\n\ndial tcp: lookup foobar: no such host",
+      "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "470a7e7a_5187fb31",
+        "filename": "internal/cli/keys.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 76,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-15T09:19:01Z",
+      "side": 1,
+      "message": "I think this would require some new help text implementation. Maybe I\u0027ll do this later. I\u0027ll check how this works.",
+      "parentUuid": "ce0b5a3d_778acd10",
       "revId": "e0306218624772fc179556c6bda1921eb614c4fd",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
