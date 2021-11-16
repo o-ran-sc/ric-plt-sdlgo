@@ -23,10 +23,18 @@
 package cli
 
 import (
+	"fmt"
+	"os"
+	"sort"
+
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 	"github.com/spf13/cobra"
 )
 
-var getCmd = newGetCmd()
+var getCmd = newGetCmd(func() ISyncStorage {
+	return sdlgo.NewSyncStorage()
+})
 
 func init() {
 	rootCmd.AddCommand(getCmd)
@@ -35,17 +43,60 @@ func init() {
 var (
 	getLong = `Display one or many resources.
 
-Prints important information about the specified resources.`
+Prints keys and keys data in the given namespace.`
 
-	getExample = `  # List keys in the given namespace.
+	getExample = `  # Get reads keys data in the given namespace.
+  sdlcli get sdlns key1
+
+  # Get reads multiple keys data in the given namespace.
+  sdlcli get sdlns key1 key2 key3
+
+  # List keys in the given namespace.
   sdlcli get keys sdlns`
 )
 
-func newGetCmd() *cobra.Command {
+func newGetCmd(sdlCb SyncStorageCreateCb) *cobra.Command {
 	return &cobra.Command{
-		Use:     "get",
+		Use:     "get <namespace> <key> [<key2> <key3>... <keyN>]",
 		Short:   "Display one or many resources",
 		Long:    getLong,
 		Example: getExample,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			sdlgoredis.SetDbLogger(&buf)
+			if len(args) < 2 {
+				return fmt.Errorf("accepts command or arguments, received %d", len(args))
+			}
+			data, err := runGet(sdlCb, args)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s", buf.String())
+				return err
+			}
+			printData(cmd, data)
+			return nil
+		},
+	}
+}
+
+func runGet(sdlCb SyncStorageCreateCb, args []string) (map[string]interface{}, error) {
+	data, err := sdlCb().Get(args[0], args[1:])
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func printData(cmd *cobra.Command, data map[string]interface{}) {
+	var str string
+	var sortedKeys []string
+	for key := range data {
+		sortedKeys = append(sortedKeys, key)
+	}
+	sort.Strings(sortedKeys)
+	for _, k := range sortedKeys {
+		value, ok := data[k]
+		if ok && value != nil {
+			str = fmt.Sprintf("%s:%s", k, value)
+			cmd.Printf(str + "\n")
+		}
 	}
 }
