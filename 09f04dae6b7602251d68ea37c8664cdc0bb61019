@@ -16,6 +16,23 @@
       "message": "patchset #3",
       "revId": "09f04dae6b7602251d68ea37c8664cdc0bb61019",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "8d7e124e_8dd33921",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 3
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-11-17T13:31:55Z",
+      "side": 1,
+      "message": "Patch set #3 looks good to me.",
+      "revId": "09f04dae6b7602251d68ea37c8664cdc0bb61019",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
