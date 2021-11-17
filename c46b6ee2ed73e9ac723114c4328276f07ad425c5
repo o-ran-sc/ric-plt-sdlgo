@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "0a2159cd_841bf6fc",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-11-17T13:02:34Z",
+      "side": 1,
+      "message": "Looks good, only two minor findings.",
+      "revId": "c46b6ee2ed73e9ac723114c4328276f07ad425c5",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "7e628f3b_de90ede7",
+        "filename": "internal/cli/get.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-11-17T13:02:34Z",
+      "side": 1,
+      "message": "Maybe this could be update with specific information what user can do with the get command... get keys and get key values...",
+      "revId": "c46b6ee2ed73e9ac723114c4328276f07ad425c5",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "63ee0c70_4a824686",
+        "filename": "internal/cli/get.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-11-17T13:02:34Z",
+      "side": 1,
+      "message": "Maybe this can be written like this, no need to use \u0027errors\u0027 pkg:\nreturn fmt.Errorf(\"accepts command or arguments, received %d\", len(args))",
+      "revId": "c46b6ee2ed73e9ac723114c4328276f07ad425c5",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    }
+  ]
+}
