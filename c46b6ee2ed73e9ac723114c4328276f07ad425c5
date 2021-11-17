@@ -18,6 +18,23 @@
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     },
     {
+      "unresolved": false,
+      "key": {
+        "uuid": "a187e9ba_158f003f",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-17T13:24:19Z",
+      "side": 1,
+      "message": "Thanks for comments. I\u0027ll send a new patchset....",
+      "revId": "c46b6ee2ed73e9ac723114c4328276f07ad425c5",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
       "unresolved": true,
       "key": {
         "uuid": "7e628f3b_de90ede7",
@@ -37,6 +54,24 @@
     {
       "unresolved": true,
       "key": {
+        "uuid": "e5e8af82_f2db6797",
+        "filename": "internal/cli/get.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 47,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-17T13:24:19Z",
+      "side": 1,
+      "message": "Yes, I\u0027ll update.",
+      "parentUuid": "7e628f3b_de90ede7",
+      "revId": "c46b6ee2ed73e9ac723114c4328276f07ad425c5",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
         "uuid": "63ee0c70_4a824686",
         "filename": "internal/cli/get.go",
         "patchSetId": 2
@@ -48,6 +83,24 @@
       "writtenOn": "2021-11-17T13:02:34Z",
       "side": 1,
       "message": "Maybe this can be written like this, no need to use \u0027errors\u0027 pkg:\nreturn fmt.Errorf(\"accepts command or arguments, received %d\", len(args))",
+      "revId": "c46b6ee2ed73e9ac723114c4328276f07ad425c5",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "15d0aa7b_51c54c62",
+        "filename": "internal/cli/get.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 68,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-17T13:24:19Z",
+      "side": 1,
+      "message": "I will be better like that. I\u0027ll change.",
+      "parentUuid": "63ee0c70_4a824686",
       "revId": "c46b6ee2ed73e9ac723114c4328276f07ad425c5",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
