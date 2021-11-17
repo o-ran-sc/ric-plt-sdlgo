@@ -1,0 +1,44 @@
+{
+  "comments": [
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "1ddd8214_0e553ac3",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-17T07:14:53Z",
+      "side": 1,
+      "message": "Looks very good. One question related to help text.",
+      "revId": "2d7635c54e1f8d7165e6cb6bdcf0df209ea05e7c",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "ebeba66b_27ef3d0e",
+        "filename": "internal/cli/remove.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 45,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-17T07:14:53Z",
+      "side": 1,
+      "message": "This help text could be:\n\n  remove \u003cnamespace \u003ckey\u003e [\u003ckey2\u003e... \u003ckeyN\u003e]\n\nWhat do you think about the idea?",
+      "range": {
+        "startLine": 45,
+        "startChar": 29,
+        "endLine": 45,
+        "endChar": 37
+      },
+      "revId": "2d7635c54e1f8d7165e6cb6bdcf0df209ea05e7c",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    }
+  ]
+}
