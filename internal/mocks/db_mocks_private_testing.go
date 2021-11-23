@@ -41,6 +41,11 @@ func (m *MockDB) State() (*sdlgoredis.DbState, error) {
 	return a.Get(0).(*sdlgoredis.DbState), a.Error(1)
 }
 
+func (m *MockDB) Keys(pattern string) ([]string, error) {
+	a := m.Called(pattern)
+	return a.Get(0).([]string), a.Error(1)
+}
+
 type MockSdlApi struct {
 	mock.Mock
 }

@@ -72,7 +72,7 @@ func runGetCmdCli() (string, string, error) {
 
 func TestGetCmdShowHelp(t *testing.T) {
 	var expOkErr error
-	expHelp := "Display one or many resources.\n\nPrints keys and keys data in the given namespace."
+	expHelp := "Display one or many resources.\n\nPrints namespaces, keys or keys data in the given namespace."
 	expHelpUsage := "Usage:\n  get <namespace> <key> [<key2> <key3>... <keyN>] [flags]"
 	expArgsErr := errors.New("accepts command or arguments, received 0")
 	expNokErr := errors.New("unknown flag: --ff")
