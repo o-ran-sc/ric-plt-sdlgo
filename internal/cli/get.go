@@ -43,16 +43,19 @@ func init() {
 var (
 	getLong = `Display one or many resources.
 
-Prints keys and keys data in the given namespace.`
+Prints namespaces, keys or keys data in the given namespace.`
 
-	getExample = `  # Get reads keys data in the given namespace.
-  sdlcli get sdlns key1
-
-  # Get reads multiple keys data in the given namespace.
-  sdlcli get sdlns key1 key2 key3
+	getExample = `  # List all the namespaces in database.
+  sdlcli get namespaces
 
   # List keys in the given namespace.
-  sdlcli get keys sdlns`
+  sdlcli get keys sdlns
+
+  # Reads key data in the given namespace.
+  sdlcli get sdlns key1
+
+  # Read multiple keys data in the given namespace.
+  sdlcli get sdlns key1 key2 key3`
 )
 
 func newGetCmd(sdlCb SyncStorageCreateCb) *cobra.Command {
