@@ -20,15 +20,16 @@
  * platform project (RICP).
  */
 
-package cli
+package sdlgoredis
 
-var (
-	NewRootCmd              = newRootCmd
-	NewHealthCheckCmd       = newHealthCheckCmd
-	NewKeysCmdForTest       = newKeysCmd
-	NewGetCmdForTest        = newGetCmd
-	NewSetCmdForTest        = newSetCmd
-	NewRemoveCmdForTest     = newRemoveCmd
-	NewNamespacesCmdForTest = newNamespacesCmd
-	NewStatisticsCmd        = newStatisticsCmd
-)
+//DbStatistics struct contains list of DB's Statistics information.
+type DbStatistics struct {
+	Stats []*DbStatisticsInfo
+}
+
+//DbStatisticsInfo struct contains fields for DB Statistics information.
+type DbStatisticsInfo struct {
+	IPAddr string
+	Port   string
+	Info   *DbInfo
+}
