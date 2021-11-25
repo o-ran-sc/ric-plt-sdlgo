@@ -28,6 +28,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"text/tabwriter"
 )
 
 func init() {
@@ -41,14 +42,14 @@ func newNamespacesCmd(dbCreateCb DbCreateCb) *cobra.Command {
 		Long:  "List all the namespaces in database",
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			showPerDb, _ := cmd.Flags().GetBool("group")
+			showWide, _ := cmd.Flags().GetBool("wide")
 			nsMap, err := runNamespaces(dbCreateCb)
 			if err != nil {
 				cmd.PrintErrf("%s\n", buf.String())
 				return err
 			}
-			if showPerDb {
-				printNamespacesPerDb(cmd, nsMap)
+			if showWide {
+				printNamespacesWide(cmd, nsMap)
 			} else {
 				printNamespaces(cmd, nsMap)
 			}
@@ -56,12 +57,12 @@ func newNamespacesCmd(dbCreateCb DbCreateCb) *cobra.Command {
 		},
 	}
 	cmd.SetOut(os.Stdout)
-	cmd.Flags().BoolP("group", "g", false, "Show namespaces per SDL DB cluster group")
+	cmd.Flags().BoolP("wide", "w", false, "Show SDL DB cluster address, namespace name and its keys count")
 	return cmd
 }
 
-func runNamespaces(dbCreateCb DbCreateCb) (map[string][]string, error) {
-	nsMap := make(map[string][]string)
+func runNamespaces(dbCreateCb DbCreateCb) (nsMap, error) {
+	nsMap := make(nsMap)
 	for _, dbInst := range dbCreateCb().Instances {
 		keys, err := dbInst.Keys("*")
 		if err != nil {
@@ -71,13 +72,20 @@ func runNamespaces(dbCreateCb DbCreateCb) (map[string][]string, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		if _, ok := nsMap[id]; !ok {
+			nsMap[id] = make(nsKeyMap)
+		}
+
 		for _, key := range keys {
 			namespace, err := parseKeyNamespace(key)
 			if err != nil {
 				return nil, err
 			}
 			if isUniqueNamespace(nsMap[id], namespace) {
-				nsMap[id] = append(nsMap[id], namespace)
+				nsMap[id][namespace] = 1
+			} else {
+				nsMap[id][namespace]++
 			}
 		}
 	}
@@ -105,36 +113,44 @@ func parseKeyNamespace(key string) (string, error) {
 	return str[:eIndex], nil
 }
 
-func isUniqueNamespace(namespaces []string, newNs string) bool {
-	for _, n := range namespaces {
-		if n == newNs {
-			return false
-		}
+func isUniqueNamespace(namespaces nsKeyMap, newNs string) bool {
+	if _, ok := namespaces[newNs]; ok {
+		return false
 	}
 	return true
 }
 
-func printNamespaces(cmd *cobra.Command, nsMap map[string][]string) {
-	var namespaces []string
-	for _, nsList := range nsMap {
-		namespaces = append(namespaces, nsList...)
+func printNamespaces(cmd *cobra.Command, nsMap nsMap) {
+	var nsList []string
+	for _, nsKeyMap := range nsMap {
+		for ns, _ := range nsKeyMap {
+			nsList = append(nsList, ns)
+		}
 	}
 
-	sort.Strings(namespaces)
-	for _, ns := range namespaces {
+	sort.Strings(nsList)
+	for _, ns := range nsList {
 		cmd.Println(ns)
 	}
 }
 
-func printNamespacesPerDb(cmd *cobra.Command, nsMap map[string][]string) {
-	for addr, nsList := range nsMap {
+func printNamespacesWide(cmd *cobra.Command, nsMap nsMap) {
+	var nsList []string
+	w := tabwriter.NewWriter(cmd.OutOrStdout(), 6, 4, 3, ' ', tabwriter.AlignRight)
+	fmt.Fprintln(w, "ADDRESS\tNAMESPACE\tKEYS\t")
+	for addr, nsKeyMap := range nsMap {
+		for ns, _ := range nsKeyMap {
+			nsList = append(nsList, ns)
+		}
 		sort.Strings(nsList)
 		for _, ns := range nsList {
 			if addr == "" {
-				cmd.Printf("%s\n", ns)
+				fmt.Fprintf(w, "\t%s\t%d\t\n", ns, nsKeyMap[ns])
 			} else {
-				cmd.Printf("%s: %s\n", addr, ns)
+				fmt.Fprintf(w, "%s\t%s\t%d\t\n", addr, ns, nsKeyMap[ns])
 			}
 		}
+		nsList = nil
 	}
+	w.Flush()
 }

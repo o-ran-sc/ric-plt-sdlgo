@@ -65,5 +65,11 @@ func newKeysArgs(ns string, pattern string) keysArgs {
 	}
 }
 
+//nsMap is a map having SDL DB cluster address as a key and namespace map of type nsKeyMap as a value
+type nsMap map[string]nsKeyMap
+
+//nsKeyMap is a map having namespace as a key and DB key count as a value
+type nsKeyMap map[string]uint32
+
 //SdlCliApp constant defines the name of the SDL CLI application
 const SdlCliApp = "sdlcli"

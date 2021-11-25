@@ -112,8 +112,12 @@ func TestNamespacesCmdSuccess(t *testing.T) {
 	mNs.dbIface.AssertExpectations(t)
 }
 
-func TestNamespacesCmdWithPerDbFlagSuccess(t *testing.T) {
-	expOut := "1.2.3.4:6379: ns1\n" + "1.2.3.4:6379: ns2\n" + "1.2.3.4:6379: ns3\n"
+func TestNamespacesCmdWithWideFlagSuccess(t *testing.T) {
+	expOut :=
+		"        ADDRESS   NAMESPACE   KEYS\n" +
+			"   1.2.3.4:6379         ns1      2\n" +
+			"   1.2.3.4:6379         ns2      1\n" +
+			"   1.2.3.4:6379         ns3      1\n"
 	buf := new(bytes.Buffer)
 	setupNamespacesCliMock([]string{
 		"{ns1},key1",
@@ -124,7 +128,7 @@ func TestNamespacesCmdWithPerDbFlagSuccess(t *testing.T) {
 	cmd := cli.NewNamespacesCmdForTest(newNsMockDatabase)
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"--group"})
+	cmd.SetArgs([]string{"--wide"})
 
 	err := cmd.Execute()
 	result := buf.String()
@@ -150,14 +154,14 @@ func TestNamespacesCmdNoKeysInDbSuccess(t *testing.T) {
 	mNs.dbIface.AssertExpectations(t)
 }
 
-func TestNamespacesCmdWithPerDbFlagNoKeysInDbSuccess(t *testing.T) {
-	expOut := ""
+func TestNamespacesCmdWithWideFlagNoKeysInDbSuccess(t *testing.T) {
+	expOut := "   ADDRESS   NAMESPACE   KEYS\n"
 	buf := new(bytes.Buffer)
 	setupNamespacesCliMock([]string{}, "1.2.3.4", nil, nil)
 	cmd := cli.NewNamespacesCmdForTest(newNsMockDatabase)
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"--group"})
+	cmd.SetArgs([]string{"-w"})
 
 	err := cmd.Execute()
 	result := buf.String()
@@ -167,8 +171,12 @@ func TestNamespacesCmdWithPerDbFlagNoKeysInDbSuccess(t *testing.T) {
 	mNs.dbIface.AssertExpectations(t)
 }
 
-func TestNamespacesCmdWithPerDbFlagStandaloneRedisAddressMissingSuccess(t *testing.T) {
-	expOut := "ns1\n" + "ns2\n" + "ns3\n"
+func TestNamespacesCmdWithWideFlagStandaloneRedisAddressMissingSuccess(t *testing.T) {
+	expOut :=
+		"   ADDRESS   NAMESPACE   KEYS\n" +
+			"                   ns1      2\n" +
+			"                   ns2      1\n" +
+			"                   ns3      1\n"
 	buf := new(bytes.Buffer)
 	setupNamespacesCliMock([]string{
 		"{ns1},key1",
@@ -179,7 +187,7 @@ func TestNamespacesCmdWithPerDbFlagStandaloneRedisAddressMissingSuccess(t *testi
 	cmd := cli.NewNamespacesCmdForTest(newNsMockDatabase)
 	cmd.SetOut(buf)
 	cmd.SetErr(buf)
-	cmd.SetArgs([]string{"--group"})
+	cmd.SetArgs([]string{"--wide"})
 
 	err := cmd.Execute()
 	result := buf.String()
