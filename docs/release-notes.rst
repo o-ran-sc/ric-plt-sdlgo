@@ -29,6 +29,9 @@ This document provides the release notes of the sdlgo.
 
 Version history
 ---------------
+[0.9.0] - 2021-12-16
+
+* SDL CLI tool
 
 [0.8.0] - 2021-09-22
 
