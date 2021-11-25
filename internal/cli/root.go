@@ -36,6 +36,7 @@ func newRootCmd() *cobra.Command {
 		Short: "Shared Data Layer (SDL) troubleshooting command line tool",
 		Long:  `Shared Data Layer (SDL) troubleshooting command line tool`,
 		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
 		},
 	}
 }

@@ -39,6 +39,7 @@ func TestCliShowsHelp(t *testing.T) {
 		expErr    error
 		expOutput string
 	}{
+		{args: "", expErr: expOkErr, expOutput: expHelp},
 		{args: "-h", expErr: expOkErr, expOutput: expHelp},
 		{args: "--help", expErr: expOkErr, expOutput: expHelp},
 		{args: "--some-unknown-flag", expErr: expNokErr, expOutput: expHelp},
@@ -50,6 +51,7 @@ func TestCliShowsHelp(t *testing.T) {
 		cmd.SetOut(buf)
 		cmd.SetErr(buf)
 		cmd.SetArgs([]string{test.args})
+
 		err := cmd.Execute()
 		result := buf.String()
 		assert.Equal(t, test.expErr, err)
