@@ -30,6 +30,7 @@ type iDatabase interface {
 	Info() (*sdlgoredis.DbInfo, error)
 	State() (*sdlgoredis.DbState, error)
 	Keys(pattern string) ([]string, error)
+	Statistics() (*sdlgoredis.DbStatistics, error)
 }
 
 //Database struct is a holder for the internal database instances.

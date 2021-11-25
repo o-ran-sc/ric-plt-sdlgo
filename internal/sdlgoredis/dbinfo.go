@@ -33,4 +33,80 @@ type DbInfo struct {
 type DbInfoFields struct {
 	PrimaryRole         bool
 	ConnectedReplicaCnt uint32
+	Server              ServerInfoFields
+	Clients             ClientsInfoFields
+	Memory              MeroryInfoFields
+	Stats               StatsInfoFields
+	Cpu                 CpuInfoFields
+	Commandstats        CommandstatsInfoFields
+	Keyspace            KeyspaceInfoFields
+}
+
+type ServerInfoFields struct {
+	UptimeInDays uint32
+}
+
+type ClientsInfoFields struct {
+	ConnectedClients            uint32
+	ClientRecentMaxInputBuffer  uint32
+	ClientRecentMaxOutputBuffer uint32
+}
+
+type MeroryInfoFields struct {
+	UsedMemory            uint64
+	UsedMemoryHuman       string
+	UsedMemoryRss         uint64
+	UsedMemoryRssHuman    string
+	UsedMemoryPeak        uint64
+	UsedMemoryPeakHuman   string
+	UsedMemoryPeakPerc    string
+	MemFragmentationRatio float32
+	MemFragmentationBytes uint32
+}
+
+type StatsInfoFields struct {
+	TotalConnectionsReceived uint32
+	TotalCommandsProcessed   uint32
+	SyncFull                 uint32
+	SyncPartialOk            uint32
+	SyncPartialErr           uint32
+	PubsubChannels           uint32
+}
+
+type CpuInfoFields struct {
+	UsedCpuSys  float64
+	UsedCpuUser float64
+}
+
+type CommandstatsValues struct {
+	Calls       uint32
+	Usec        uint32
+	UsecPerCall float32
+}
+
+type CommandstatsInfoFields struct {
+	CmdstatReplconf  CommandstatsValues
+	CmdstatKeys      CommandstatsValues
+	CmdstatRole      CommandstatsValues
+	CmdstatConfig    CommandstatsValues
+	CmdstatPsync     CommandstatsValues
+	CmdstatMset      CommandstatsValues
+	CmdstatPublish   CommandstatsValues
+	CmdstatInfo      CommandstatsValues
+	CmdstatPing      CommandstatsValues
+	CmdstatClient    CommandstatsValues
+	CmdstatCommand   CommandstatsValues
+	CmdstatSubscribe CommandstatsValues
+	CmdstatMonitor   CommandstatsValues
+	CmdstatSlaveof   CommandstatsValues
+}
+
+type KeyspaceValues struct {
+	Keys    uint32
+	Expires uint32
+	AvgTtl  uint32
+}
+
+type KeyspaceInfoFields struct {
+	Db KeyspaceValues
 }

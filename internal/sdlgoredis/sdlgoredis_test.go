@@ -1207,7 +1207,6 @@ func TestInfoOfStandalonePrimaryRedisSuccessfully(t *testing.T) {
 }
 
 func TestInfoOfStandalonePrimaryRedisFailureWhenIntConversionFails(t *testing.T) {
-	expErr := errors.New("Info reply error: strconv.ParseUint: parsing \"not-int\": invalid syntax")
 	_, r, db := setupHaEnv(true)
 	redisInfo := "# Replication\r\n" +
 		"role:master\r\n" +
@@ -1222,7 +1221,7 @@ func TestInfoOfStandalonePrimaryRedisFailureWhenIntConversionFails(t *testing.T)
 
 	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
 	info, err := db.Info()
-	assert.Equal(t, expErr, err)
+	assert.Nil(t, err)
 	assert.Equal(t, expInfo, info)
 	r.AssertExpectations(t)
 }
@@ -1245,6 +1244,71 @@ func TestInfoWithEmptyContentSuccessfully(t *testing.T) {
 	expInfo := &sdlgoredis.DbInfo{
 		Fields: sdlgoredis.DbInfoFields{
 			PrimaryRole: false,
+		},
+	}
+
+	r.On("Info", []string{"all"}).Return(redis.NewStringResult(redisInfo, nil))
+	info, err := db.Info()
+	assert.Nil(t, err)
+	assert.Equal(t, expInfo, info)
+	r.AssertExpectations(t)
+}
+
+func TestInfoWithSomeStatisticsOfStandalonePrimaryRedis(t *testing.T) {
+	_, r, db := setupHaEnv(true)
+	redisInfo := "# Replication\r\n" +
+		"role:master\r\n" +
+		"connected_slaves:0\r\n" +
+		"min_slaves_good_slaves:0\r\n" +
+		"# Server\r\n" +
+		"uptime_in_days:23\r\n" +
+		"# Clients\r\n" +
+		"connected_clients:2\r\n" +
+		"# Memory\r\n" +
+		"used_memory:2093808\r\n" +
+		"used_memory_human:2.00M\r\n" +
+		"mem_fragmentation_ratio:6.44\r\n" +
+		"# Stats\r\n" +
+		"total_connections_received:278\r\n" +
+		"# CPU\r\n" +
+		"used_cpu_sys:1775.254919\r\n" +
+		"# Commandstats\r\n" +
+		"# cmdstat_role:calls=1,usec=3,usec_per_call=3.00\r\n" +
+		"# Keyspace\r\n" +
+		"db0:keys=4,expires=0,avg_ttl=0"
+	expInfo := &sdlgoredis.DbInfo{
+		Fields: sdlgoredis.DbInfoFields{
+			PrimaryRole:         true,
+			ConnectedReplicaCnt: 0,
+			Server: sdlgoredis.ServerInfoFields{
+				UptimeInDays: 23,
+			},
+			Clients: sdlgoredis.ClientsInfoFields{
+				ConnectedClients: 2,
+			},
+			Memory: sdlgoredis.MeroryInfoFields{
+				UsedMemory:            2093808,
+				UsedMemoryHuman:       "2.00M",
+				MemFragmentationRatio: 6.44,
+			},
+			Stats: sdlgoredis.StatsInfoFields{
+				TotalConnectionsReceived: 278,
+			},
+			Cpu: sdlgoredis.CpuInfoFields{
+				UsedCpuSys: 1775.254919,
+			},
+			Commandstats: sdlgoredis.CommandstatsInfoFields{
+				CmdstatRole: sdlgoredis.CommandstatsValues{
+					Calls:       1,
+					Usec:        3,
+					UsecPerCall: 3.00,
+				},
+			},
+			Keyspace: sdlgoredis.KeyspaceInfoFields{
+				Db: sdlgoredis.KeyspaceValues{
+					Keys: 4,
+				},
+			},
 		},
 	}
 
@@ -1402,6 +1466,8 @@ func TestStateWithSinglePrimaryRedisSuccessfully(t *testing.T) {
 		PrimaryDbState: sdlgoredis.PrimaryDbState{
 			Fields: sdlgoredis.PrimaryDbStateFields{
 				Role:  "master",
+				Ip:    "service-ricplt-dbaas-tcp-cluster-0.ricplt",
+				Port:  "6376",
 				Flags: "master",
 			},
 		},
@@ -1428,6 +1494,8 @@ func TestStateWithSinglePrimaryRedisFailureWhenIntConversionFails(t *testing.T) 
 		PrimaryDbState: sdlgoredis.PrimaryDbState{
 			Fields: sdlgoredis.PrimaryDbStateFields{
 				Role:  "master",
+				Ip:    "service-ricplt-dbaas-tcp-cluster-0.ricplt",
+				Port:  "6376",
 				Flags: "master",
 			},
 		},
