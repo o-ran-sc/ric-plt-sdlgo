@@ -16,6 +16,46 @@
       "message": "For review.",
       "revId": "56302f881c8ae8c94668c290b04906e2376d3b1c",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "2c4fac41_a21f4db3",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 1
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-26T13:54:15Z",
+      "side": 1,
+      "message": "Suggestion to output formatting.",
+      "revId": "56302f881c8ae8c94668c290b04906e2376d3b1c",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "249aed30_b43c9581",
+        "filename": "internal/cli/namespaces.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-11-26T13:54:15Z",
+      "side": 1,
+      "message": "The output would look more nice if we do not set the AlignRight -flags here. Now it produces something like this:\n\n           ADDRESS    NAMESPACE   KEYS\n   172.18.0.2:6379        basic      1\n   172.18.0.2:6379    basic_tag      2\n   172.20.0.2:6379   basic_tag1      1\n\n\nBut I think it should look like this:\n\nADDRESS           NAMESPACE    KEYS   \n172.18.0.2:6379   basic        1      \n172.18.0.2:6379   basic_tag    2      \n172.20.0.2:6379   basic_tag1   1",
+      "range": {
+        "startLine": 139,
+        "startChar": 59,
+        "endLine": 139,
+        "endChar": 79
+      },
+      "revId": "56302f881c8ae8c94668c290b04906e2376d3b1c",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
