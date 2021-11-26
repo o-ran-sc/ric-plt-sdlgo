@@ -56,6 +56,30 @@
       },
       "revId": "56302f881c8ae8c94668c290b04906e2376d3b1c",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "0b1ef1b4_76943acf",
+        "filename": "internal/cli/namespaces.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 139,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-11-26T14:28:01Z",
+      "side": 1,
+      "message": "Thanks Petri. Changed to use left alignment.",
+      "parentUuid": "249aed30_b43c9581",
+      "range": {
+        "startLine": 139,
+        "startChar": 59,
+        "endLine": 139,
+        "endChar": 79
+      },
+      "revId": "56302f881c8ae8c94668c290b04906e2376d3b1c",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
