@@ -34,22 +34,32 @@ import (
 var removeMocks *RemoveMocks
 
 type RemoveMocks struct {
-	sdlIface *mocks.MockSdlApi
-	ns       string
-	keys     []string
-	ret      error
+	sdlIface  *mocks.MockSdlApi
+	ns        string
+	kps       []string
+	keys      []string
+	retList   error
+	retRemove error
 }
 
-func setupRemoveCliMock(ns string, keys []string, ret error) {
+func setupRemoveCliMock(ns string, keyPattern, keys []string, retList, retRemove error) {
 	removeMocks = new(RemoveMocks)
 	removeMocks.ns = ns
+	removeMocks.kps = keyPattern
 	removeMocks.keys = keys
-	removeMocks.ret = ret
+	removeMocks.retList = retList
+	removeMocks.retRemove = retRemove
 }
 
 func newMockSdlRemoveApi() cli.ISyncStorage {
 	removeMocks.sdlIface = new(mocks.MockSdlApi)
-	removeMocks.sdlIface.On("Remove", removeMocks.ns, removeMocks.keys).Return(removeMocks.ret)
+	if len(removeMocks.kps) == 0 {
+		removeMocks.kps = append(removeMocks.kps, "*")
+	}
+	for _, kp := range removeMocks.kps {
+		removeMocks.sdlIface.On("ListKeys", removeMocks.ns, kp).Return(removeMocks.keys, removeMocks.retList)
+	}
+	removeMocks.sdlIface.On("Remove", removeMocks.ns, removeMocks.keys).Return(removeMocks.retRemove).Maybe()
 	return removeMocks.sdlIface
 }
 
@@ -60,7 +70,7 @@ func runRemoveCli() (string, string, error) {
 	cmd.SetOut(bufStdout)
 	cmd.SetErr(bufStderr)
 	args := []string{removeMocks.ns}
-	args = append(args, removeMocks.keys...)
+	args = append(args, removeMocks.kps...)
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 
@@ -69,9 +79,9 @@ func runRemoveCli() (string, string, error) {
 
 func TestCliRemoveCanShowHelp(t *testing.T) {
 	var expOkErr error
-	expHelp := "Usage:\n  " + "remove <namespace> <key> [<key2>... <keyN>] [flags]"
+	expHelp := "remove <namespace> [<key|pattern>... <keyN|patternN>] [flags]"
 	expFlagErr := fmt.Errorf("unknown flag: --some-unknown-flag")
-	expArgCntLtErr := fmt.Errorf("requires at least 2 arg(s), only received 1")
+	expArgCntLtErr := fmt.Errorf("requires at least 1 arg(s), only received 0")
 	tests := []struct {
 		args      []string
 		expErr    error
@@ -80,7 +90,7 @@ func TestCliRemoveCanShowHelp(t *testing.T) {
 		{args: []string{"-h"}, expErr: expOkErr, expOutput: expHelp},
 		{args: []string{"--help"}, expErr: expOkErr, expOutput: expHelp},
 		{args: []string{"--some-unknown-flag"}, expErr: expFlagErr, expOutput: expHelp},
-		{args: []string{"some-ns"}, expErr: expArgCntLtErr, expOutput: expHelp},
+		{args: nil, expErr: expArgCntLtErr, expOutput: expHelp},
 	}
 
 	for _, test := range tests {
@@ -98,7 +108,7 @@ func TestCliRemoveCanShowHelp(t *testing.T) {
 }
 
 func TestCliRemoveCommandWithOneKeySuccess(t *testing.T) {
-	setupRemoveCliMock("some-ns", []string{"some-key"}, nil)
+	setupRemoveCliMock("some-ns", []string{"some-key"}, []string{"some-key"}, nil, nil)
 
 	stdout, stderr, err := runRemoveCli()
 
@@ -108,8 +118,8 @@ func TestCliRemoveCommandWithOneKeySuccess(t *testing.T) {
 	removeMocks.sdlIface.AssertExpectations(t)
 }
 
-func TestCliRemoveCommandWithMultipleKeysSuccess(t *testing.T) {
-	setupRemoveCliMock("some-ns", []string{"some-key-1", "some-key-1", "some-key-3"}, nil)
+func TestCliRemoveCommandWithOneKeyPatternSuccess(t *testing.T) {
+	setupRemoveCliMock("some-ns", []string{"some-key*"}, []string{"some-key-1", "some-key-1", "some-key-3"}, nil, nil)
 
 	stdout, stderr, err := runRemoveCli()
 
@@ -119,9 +129,42 @@ func TestCliRemoveCommandWithMultipleKeysSuccess(t *testing.T) {
 	removeMocks.sdlIface.AssertExpectations(t)
 }
 
-func TestCliRemoveCommandFailure(t *testing.T) {
+func TestCliRemoveCommandWithMultipleKeyPatternsSuccess(t *testing.T) {
+	setupRemoveCliMock("some-ns", []string{"some-key*", "other-key*"}, []string{"other-key2"}, nil, nil)
+
+	stdout, stderr, err := runRemoveCli()
+
+	assert.Nil(t, err)
+	assert.Equal(t, "", stdout)
+	assert.Equal(t, "", stderr)
+	removeMocks.sdlIface.AssertExpectations(t)
+}
+
+func TestCliRemoveCommandWithOutKeyOrPatternSuccess(t *testing.T) {
+	setupRemoveCliMock("some-ns", []string{}, []string{"some-key-1", "some-key-1", "some-key-3"}, nil, nil)
+
+	stdout, stderr, err := runRemoveCli()
+
+	assert.Nil(t, err)
+	assert.Equal(t, "", stdout)
+	assert.Equal(t, "", stderr)
+	removeMocks.sdlIface.AssertExpectations(t)
+}
+
+func TestCliRemoveCommandErrorInSdlApiListKeysFailure(t *testing.T) {
 	expErr := fmt.Errorf("some-error")
-	setupRemoveCliMock("some-ns", []string{"some-key"}, expErr)
+	setupRemoveCliMock("some-ns", []string{"*"}, []string{"some-key"}, expErr, nil)
+
+	_, stderr, err := runRemoveCli()
+
+	assert.Equal(t, expErr, err)
+	assert.Contains(t, stderr, expErr.Error())
+	removeMocks.sdlIface.AssertExpectations(t)
+}
+
+func TestCliRemoveCommandErrorInSdlApiRemoveFailure(t *testing.T) {
+	expErr := fmt.Errorf("some-error")
+	setupRemoveCliMock("some-ns", []string{"*"}, []string{"some-key"}, nil, expErr)
 
 	_, stderr, err := runRemoveCli()
 

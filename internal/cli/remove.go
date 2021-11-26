@@ -30,9 +30,29 @@ import (
 	"os"
 )
 
-const removeLongHelp = "Remove key(s) under given namespace from SDL DB.\n" +
-	"Multiple keys to remove can be given in a single command,\n" +
-	"each key is separated from the one next to it by a space."
+const removeLongHelp = "Remove key(s) under given namespace from SDL DB. A key to remove\n" +
+	"can be an exact key name or a key search pattern. Multiple key names\n" +
+	"or search patterns can be given in a single command, each of which\n" +
+	"is separated from the one next to it by a space. If no key or\n" +
+	"search pattern is given, command removes all the keys under given\n" +
+	"namespace."
+
+const removeExample = "  # Remove all keys in the given namespace.\n" +
+	"  sdlcli remove sdlns\n" +
+	"  # Remove keys 'key1' and 'key2' in the given namespace.\n" +
+	"  sdlcli remove sdlns key1 key2\n" +
+	"  # Remove keys in the given namespace matching given key search pattern.\n" +
+	"  sdlcli remove sdlns 'he*'\n\n" +
+
+	"  Supported search glob-style patterns:\n" +
+	"    h?llo matches hello, hallo and hxllo\n" +
+	"    h*llo matches hllo and heeeello\n" +
+	"    h[ae]llo matches hello and hallo, but not hillo\n" +
+	"    h[^e]llo matches hallo, hbllo, ... but not hello\n" +
+	"    h[a-b]llo matches hallo and hbllo\n\n" +
+	"  The \\ escapes character in key search pattern and those will be\n" +
+	"  treated as a normal character:\n" +
+	"    h\\[?llo\\* matches h[ello* and h[allo"
 
 func init() {
 	rootCmd.AddCommand(newRemoveCmd(func() ISyncStorage {
@@ -42,10 +62,11 @@ func init() {
 
 func newRemoveCmd(sdlCreateCb SyncStorageCreateCb) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove <namespace> <key> [<key2>... <keyN>]",
-		Short: "Remove key(s) under given namespace from SDL DB",
-		Long:  removeLongHelp,
-		Args:  cobra.MinimumNArgs(2),
+		Use:     "remove <namespace> [<key|pattern>... <keyN|patternN>]",
+		Short:   "Remove key(s) under given namespace from SDL DB",
+		Long:    removeLongHelp,
+		Example: removeExample,
+		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var buf bytes.Buffer
 			sdlgoredis.SetDbLogger(&buf)
@@ -62,8 +83,19 @@ func newRemoveCmd(sdlCreateCb SyncStorageCreateCb) *cobra.Command {
 
 func runRemove(sdlCreateCb SyncStorageCreateCb, args []string) error {
 	sdl := sdlCreateCb()
-	if err := sdl.Remove(args[0], args[1:]); err != nil {
-		return err
+	ns := args[0]
+	keyPatterns := []string{"*"}
+	if len(args) > 1 {
+		keyPatterns = args[1:]
+	}
+	for _, keyPattern := range keyPatterns {
+		keys, err := sdl.ListKeys(ns, keyPattern)
+		if err != nil {
+			return err
+		}
+		if err := sdl.Remove(ns, keys); err != nil {
+			return err
+		}
 	}
 	return nil
 }
