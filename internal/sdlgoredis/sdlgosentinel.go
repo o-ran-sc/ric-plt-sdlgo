@@ -23,7 +23,9 @@
 package sdlgoredis
 
 import (
+	"fmt"
 	"github.com/go-redis/redis/v7"
+	"strconv"
 )
 
 type Sentinel struct {
@@ -61,6 +63,14 @@ func (s *Sentinel) GetDbState() (*DbState, error) {
 	state.PrimaryDbState = *pState
 	state.ReplicasDbState = rState
 	state.SentinelsDbState = sState
+
+	cnt, err := strconv.Atoi(s.Cfg.nodeCnt)
+	if err != nil {
+		state.Err = fmt.Errorf("Sentinel DBAAS_NODE_COUNT configuration value '%s' conversion to integer failed", s.Cfg.nodeCnt)
+		return state, state.Err
+	}
+	state.ConfigNodeCnt = cnt
+
 	if pErr != nil {
 		return state, pErr
 	}

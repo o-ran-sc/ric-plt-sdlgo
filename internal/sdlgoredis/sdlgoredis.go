@@ -24,6 +24,7 @@ package sdlgoredis
 
 import (
 	"errors"
+	"fmt"
 	"github.com/go-redis/redis/v7"
 	"io"
 	"log"
@@ -54,6 +55,7 @@ type Config struct {
 	masterName      string
 	sentinelPort    string
 	clusterAddrList string
+	nodeCnt         string
 }
 
 type DB struct {
@@ -174,6 +176,7 @@ func readConfig(osI OS) Config {
 		masterName:      osI.Getenv("DBAAS_MASTER_NAME", ""),
 		sentinelPort:    osI.Getenv("DBAAS_SERVICE_SENTINEL_PORT", ""),
 		clusterAddrList: osI.Getenv("DBAAS_CLUSTER_ADDR_LIST", ""),
+		nodeCnt:         osI.Getenv("DBAAS_NODE_COUNT", "1"),
 	}
 	return cfg
 }
@@ -487,12 +490,16 @@ func (db *DB) PTTL(key string) (time.Duration, error) {
 func (db *DB) Info() (*DbInfo, error) {
 	var info DbInfo
 	resultStr, err := db.client.Info("all").Result()
+	if err != nil {
+		return &info, err
+	}
+
 	result := strings.Split(strings.ReplaceAll(resultStr, "\r\n", "\n"), "\n")
-	readRedisInfoReplyFields(result, &info)
+	err = readRedisInfoReplyFields(result, &info)
 	return &info, err
 }
 
-func readRedisInfoReplyFields(input []string, info *DbInfo) {
+func readRedisInfoReplyFields(input []string, info *DbInfo) error {
 	for _, line := range input {
 		if idx := strings.Index(line, "role:"); idx != -1 {
 			roleStr := line[idx+len("role:"):]
@@ -501,15 +508,18 @@ func readRedisInfoReplyFields(input []string, info *DbInfo) {
 			}
 		} else if idx := strings.Index(line, "connected_slaves:"); idx != -1 {
 			cntStr := line[idx+len("connected_slaves:"):]
-			if cnt, err := strconv.ParseUint(cntStr, 10, 32); err == nil {
-				info.Fields.ConnectedReplicaCnt = uint32(cnt)
+			cnt, err := strconv.ParseUint(cntStr, 10, 32)
+			if err != nil {
+				return fmt.Errorf("Info reply error: %s", err.Error())
 			}
-
+			info.Fields.ConnectedReplicaCnt = uint32(cnt)
 		}
 	}
+	return nil
 }
 
 func (db *DB) State() (*DbState, error) {
+	dbState := new(DbState)
 	if db.cfg.sentinelPort != "" {
 		//Establish connection to Redis sentinel. The reason why connection is done
 		//here instead of time of the SDL instance creation is that for the time being
@@ -520,17 +530,16 @@ func (db *DB) State() (*DbState, error) {
 		sentinelClient := db.sentinel(&db.cfg, db.addr)
 		return sentinelClient.GetDbState()
 	} else {
-		var dbState DbState
 		info, err := db.Info()
 		if err != nil {
-			return &dbState, err
+			dbState.PrimaryDbState.Err = err
+			return dbState, err
 		}
-		dbState = fillDbStateFromDbInfo(info)
-		return &dbState, err
+		return db.fillDbStateFromDbInfo(info)
 	}
 }
 
-func fillDbStateFromDbInfo(info *DbInfo) DbState {
+func (db *DB) fillDbStateFromDbInfo(info *DbInfo) (*DbState, error) {
 	var dbState DbState
 	if info.Fields.PrimaryRole == true {
 		dbState = DbState{
@@ -542,7 +551,15 @@ func fillDbStateFromDbInfo(info *DbInfo) DbState {
 			},
 		}
 	}
-	return dbState
+
+	cnt, err := strconv.Atoi(db.cfg.nodeCnt)
+	if err != nil {
+		dbState.Err = fmt.Errorf("DBAAS_NODE_COUNT configuration value '%s' conversion to integer failed", db.cfg.nodeCnt)
+	} else {
+		dbState.ConfigNodeCnt = cnt
+	}
+
+	return &dbState, dbState.Err
 }
 
 var luaRefresh = redis.NewScript(`if redis.call("get", KEYS[1]) == ARGV[1] then return redis.call("pexpire", KEYS[1], ARGV[2]) else return 0 end`)

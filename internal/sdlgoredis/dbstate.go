@@ -29,6 +29,9 @@ import (
 //DbState struct is a holder for DB state information, which is received from
 //sdlgoredis sentinel 'Master' and 'Slaves' calls output.
 type DbState struct {
+	Err           error
+	ConfigNodeCnt int
+
 	PrimaryDbState   PrimaryDbState
 	ReplicasDbState  *ReplicasDbState
 	SentinelsDbState *SentinelsDbState
@@ -90,6 +93,10 @@ type SentinelDbStateFields struct {
 }
 
 func (dbst *DbState) IsOnline() error {
+	if err := dbst.Err; err != nil {
+		return err
+	}
+
 	if err := dbst.PrimaryDbState.IsOnline(); err != nil {
 		return err
 	}
