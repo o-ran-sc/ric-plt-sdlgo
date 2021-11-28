@@ -55,14 +55,14 @@ func newRedisSentinel(cfg *Config, addr string) *Sentinel {
 
 func (s *Sentinel) GetDbState() (*DbState, error) {
 	state := new(DbState)
-	mState, mErr := s.getMasterDbState()
+	pState, pErr := s.getPrimaryDbState()
 	rState, rErr := s.getReplicasState()
 	sState, sErr := s.getSentinelsState()
-	state.MasterDbState = *mState
+	state.PrimaryDbState = *pState
 	state.ReplicasDbState = rState
 	state.SentinelsDbState = sState
-	if mErr != nil {
-		return state, mErr
+	if pErr != nil {
+		return state, pErr
 	}
 	if rErr != nil {
 		return state, rErr
@@ -70,8 +70,8 @@ func (s *Sentinel) GetDbState() (*DbState, error) {
 	return state, sErr
 }
 
-func (s *Sentinel) getMasterDbState() (*MasterDbState, error) {
-	state := new(MasterDbState)
+func (s *Sentinel) getPrimaryDbState() (*PrimaryDbState, error) {
+	state := new(PrimaryDbState)
 	redisVal, redisErr := s.Master(s.Cfg.masterName).Result()
 	if redisErr == nil {
 		state.Fields.Ip = redisVal["ip"]
@@ -89,8 +89,8 @@ func (s *Sentinel) getReplicasState() (*ReplicasDbState, error) {
 
 	redisVal, redisErr := s.Slaves(s.Cfg.masterName).Result()
 	if redisErr == nil {
-		for _, redisSlave := range redisVal {
-			replicaState := readReplicaState(redisSlave.([]interface{}))
+		for _, redisReplica := range redisVal {
+			replicaState := readReplicaState(redisReplica.([]interface{}))
 			states.States = append(states.States, replicaState)
 		}
 	}
@@ -98,19 +98,19 @@ func (s *Sentinel) getReplicasState() (*ReplicasDbState, error) {
 	return states, redisErr
 }
 
-func readReplicaState(redisSlaves []interface{}) *ReplicaDbState {
+func readReplicaState(redisReplicas []interface{}) *ReplicaDbState {
 	state := new(ReplicaDbState)
-	for i := 0; i < len(redisSlaves); i += 2 {
-		if redisSlaves[i].(string) == "ip" {
-			state.Fields.Ip = redisSlaves[i+1].(string)
-		} else if redisSlaves[i].(string) == "port" {
-			state.Fields.Port = redisSlaves[i+1].(string)
-		} else if redisSlaves[i].(string) == "flags" {
-			state.Fields.Flags = redisSlaves[i+1].(string)
-		} else if redisSlaves[i].(string) == "role-reported" {
-			state.Fields.Role = redisSlaves[i+1].(string)
-		} else if redisSlaves[i].(string) == "master-link-status" {
-			state.Fields.MasterLinkStatus = redisSlaves[i+1].(string)
+	for i := 0; i < len(redisReplicas); i += 2 {
+		if redisReplicas[i].(string) == "ip" {
+			state.Fields.Ip = redisReplicas[i+1].(string)
+		} else if redisReplicas[i].(string) == "port" {
+			state.Fields.Port = redisReplicas[i+1].(string)
+		} else if redisReplicas[i].(string) == "flags" {
+			state.Fields.Flags = redisReplicas[i+1].(string)
+		} else if redisReplicas[i].(string) == "role-reported" {
+			state.Fields.Role = redisReplicas[i+1].(string)
+		} else if redisReplicas[i].(string) == "master-link-status" {
+			state.Fields.PrimaryLinkStatus = redisReplicas[i+1].(string)
 		}
 	}
 	return state

@@ -37,15 +37,15 @@ func setupDbState() *dbStateMock {
 	return new(dbStateMock)
 }
 
-func (ds *dbStateMock) setMasterError(err error) {
-	ds.state.MasterDbState.Err = err
+func (ds *dbStateMock) setPrimaryError(err error) {
+	ds.state.PrimaryDbState.Err = err
 }
 
-func (ds *dbStateMock) setMasterFields(role, ip, port, rCnt, flags string) {
-	ds.state.MasterDbState.Fields.Role = role
-	ds.state.MasterDbState.Fields.Ip = ip
-	ds.state.MasterDbState.Fields.Port = port
-	ds.state.MasterDbState.Fields.Flags = flags
+func (ds *dbStateMock) setPrimaryFields(role, ip, port, rCnt, flags string) {
+	ds.state.PrimaryDbState.Fields.Role = role
+	ds.state.PrimaryDbState.Fields.Ip = ip
+	ds.state.PrimaryDbState.Fields.Port = port
+	ds.state.PrimaryDbState.Fields.Flags = flags
 }
 
 func (ds *dbStateMock) setReplicaError(err error) {
@@ -63,7 +63,7 @@ func (ds *dbStateMock) addReplicaFields(role, ip, port, mls, flags string) {
 	newState.Fields.Role = role
 	newState.Fields.Ip = ip
 	newState.Fields.Port = port
-	newState.Fields.MasterLinkStatus = mls
+	newState.Fields.PrimaryLinkStatus = mls
 	newState.Fields.Flags = flags
 	ds.state.ReplicasDbState.States = append(ds.state.ReplicasDbState.States, newState)
 }
@@ -86,55 +86,55 @@ func (ds *dbStateMock) addSentinelFields(ip, port, flags string) {
 	ds.state.SentinelsDbState.States = append(ds.state.SentinelsDbState.States, newState)
 }
 
-func TestIsOnlineWhenSingleMasterSuccessfully(t *testing.T) {
+func TestIsOnlineWhenSinglePrimarySuccessfully(t *testing.T) {
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "0", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "0", "master")
 	err := st.state.IsOnline()
 	assert.Nil(t, err)
 }
 
-func TestIsOnlineWhenSingleMasterFailureIfErrorHasSet(t *testing.T) {
+func TestIsOnlineWhenSinglePrimaryFailureIfErrorHasSet(t *testing.T) {
 	testErr := errors.New("Some error")
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "0", "master")
-	st.setMasterError(testErr)
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "0", "master")
+	st.setPrimaryError(testErr)
 	err := st.state.IsOnline()
 	assert.Equal(t, testErr, err)
 }
 
-func TestIsOnlineWhenSingleMasterFailureIfNotMasterRole(t *testing.T) {
-	expErr := errors.New("No master DB, current role 'not-master'")
+func TestIsOnlineWhenSinglePrimaryFailureIfNotPrimaryRole(t *testing.T) {
+	expErr := errors.New("No primary DB, current role 'not-master'")
 	st := setupDbState()
-	st.setMasterFields("not-master", "1.2.3.4", "60000", "0", "master")
+	st.setPrimaryFields("not-master", "1.2.3.4", "60000", "0", "master")
 	err := st.state.IsOnline()
 	assert.Equal(t, expErr, err)
 }
 
-func TestIsOnlineWhenSingleMasterFailureIfErrorFlags(t *testing.T) {
-	expErr := errors.New("Master flags are 'any-error,master', expected 'master'")
+func TestIsOnlineWhenSinglePrimaryFailureIfErrorFlags(t *testing.T) {
+	expErr := errors.New("Primary flags are 'any-error,master', expected 'master'")
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "0", "any-error,master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "0", "any-error,master")
 	err := st.state.IsOnline()
 	assert.Equal(t, expErr, err)
 }
 
-func TestGetAddressMasterSuccessfully(t *testing.T) {
+func TestGetAddressPrimarySuccessfully(t *testing.T) {
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "0", "master")
-	addr := st.state.MasterDbState.GetAddress()
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "0", "master")
+	addr := st.state.PrimaryDbState.GetAddress()
 	assert.Equal(t, "1.2.3.4:60000", addr)
 }
 
-func TestGetAddressMasterFailureNoIpPort(t *testing.T) {
+func TestGetAddressPrimaryFailureNoIpPort(t *testing.T) {
 	st := setupDbState()
-	st.setMasterFields("master", "", "", "0", "master")
-	addr := st.state.MasterDbState.GetAddress()
+	st.setPrimaryFields("master", "", "", "0", "master")
+	addr := st.state.PrimaryDbState.GetAddress()
 	assert.Equal(t, "", addr)
 }
 
-func TestIsOnlineWhenMasterAndTwoReplicasSuccessfully(t *testing.T) {
+func TestIsOnlineWhenPrimaryAndTwoReplicasSuccessfully(t *testing.T) {
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
@@ -143,10 +143,10 @@ func TestIsOnlineWhenMasterAndTwoReplicasSuccessfully(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestIsOnlineWhenMasterAndTwoReplicasFailureIfErrorHasSet(t *testing.T) {
+func TestIsOnlineWhenPrimaryAndTwoReplicasFailureIfErrorHasSet(t *testing.T) {
 	testErr := errors.New("Some error")
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
@@ -156,10 +156,10 @@ func TestIsOnlineWhenMasterAndTwoReplicasFailureIfErrorHasSet(t *testing.T) {
 	assert.Equal(t, testErr, err)
 }
 
-func TestIsOnlineWhenMasterAndOneReplicaFailureIfSentinelErrorHasSet(t *testing.T) {
+func TestIsOnlineWhenPrimaryAndOneReplicaFailureIfSentinelErrorHasSet(t *testing.T) {
 	testErr := errors.New("Some error")
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
 	st.setSentinelError(testErr)
@@ -167,10 +167,10 @@ func TestIsOnlineWhenMasterAndOneReplicaFailureIfSentinelErrorHasSet(t *testing.
 	assert.Equal(t, testErr, err)
 }
 
-func TestIsOnlineWhenMasterAndTwoReplicasFailureIfNotSlaveRole(t *testing.T) {
+func TestIsOnlineWhenPrimaryAndTwoReplicasFailureIfNotReplicaRole(t *testing.T) {
 	expErr := errors.New("Replica role is 'not-slave', expected 'slave'")
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("not-slave", "6.7.8.10", "3450", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
@@ -179,10 +179,10 @@ func TestIsOnlineWhenMasterAndTwoReplicasFailureIfNotSlaveRole(t *testing.T) {
 	assert.Equal(t, expErr, err)
 }
 
-func TestIsOnlineWhenMasterAndTwoReplicasFailureIfMasterLinkDown(t *testing.T) {
-	expErr := errors.New("Replica link to the master is down")
+func TestIsOnlineWhenPrimaryAndTwoReplicasFailureIfPrimaryLinkDown(t *testing.T) {
+	expErr := errors.New("Replica link to the primary is down")
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "nok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
@@ -191,10 +191,10 @@ func TestIsOnlineWhenMasterAndTwoReplicasFailureIfMasterLinkDown(t *testing.T) {
 	assert.Equal(t, expErr, err)
 }
 
-func TestIsOnlineWhenMasterAndTwoReplicasFailureIfErrorFlags(t *testing.T) {
+func TestIsOnlineWhenPrimaryAndTwoReplicasFailureIfErrorFlags(t *testing.T) {
 	expErr := errors.New("Replica flags are 'any-error,slave', expected 'slave'")
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "any-error,slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
@@ -203,10 +203,10 @@ func TestIsOnlineWhenMasterAndTwoReplicasFailureIfErrorFlags(t *testing.T) {
 	assert.Equal(t, expErr, err)
 }
 
-func TestIsOnlineWhenMasterAndOneReplicaFailureIfSentinelErrorFlags(t *testing.T) {
+func TestIsOnlineWhenPrimaryAndOneReplicaFailureIfSentinelErrorFlags(t *testing.T) {
 	expErr := errors.New("Sentinel flags are 'any-error,sentinel', expected 'sentinel'")
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "112345", "any-error,sentinel")
 	err := st.state.IsOnline()
@@ -215,7 +215,7 @@ func TestIsOnlineWhenMasterAndOneReplicaFailureIfSentinelErrorFlags(t *testing.T
 
 func TestGetAddressReplicasSuccessfully(t *testing.T) {
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
@@ -228,7 +228,7 @@ func TestGetAddressReplicasSuccessfully(t *testing.T) {
 
 func TestGetAddressReplicasNoIpPort(t *testing.T) {
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "", "", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
@@ -241,7 +241,7 @@ func TestGetAddressReplicasNoIpPort(t *testing.T) {
 
 func TestGetAddressSentinelsSuccessfully(t *testing.T) {
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "6.7.8.9", "1234", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
 	st.addSentinelFields("6.7.8.9", "11234", "sentinel")
@@ -254,7 +254,7 @@ func TestGetAddressSentinelsSuccessfully(t *testing.T) {
 
 func TestGetAddressSentinelsNoIpPort(t *testing.T) {
 	st := setupDbState()
-	st.setMasterFields("master", "1.2.3.4", "60000", "2", "master")
+	st.setPrimaryFields("master", "1.2.3.4", "60000", "2", "master")
 	st.addReplicaFields("slave", "", "", "ok", "slave")
 	st.addReplicaFields("slave", "6.7.8.10", "3450", "ok", "slave")
 	st.addSentinelFields("", "", "sentinel")

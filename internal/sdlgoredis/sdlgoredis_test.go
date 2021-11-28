@@ -1032,7 +1032,7 @@ func TestClientTwoSentinelRedisEnvs(t *testing.T) {
 	setupVals.rClient[1].AssertExpectations(t)
 }
 
-func TestInfoOfMasterRedisWithTwoSlavesSuccessfully(t *testing.T) {
+func TestInfoOfPrimaryRedisWithTwoReplicasSuccessfully(t *testing.T) {
 	_, r, db := setupHaEnv(true)
 	redisInfo := "# Replication\r\n" +
 		"role:master\r\n" +
@@ -1042,7 +1042,7 @@ func TestInfoOfMasterRedisWithTwoSlavesSuccessfully(t *testing.T) {
 		"slave1:ip=5.6.7.8,port=6379,state=online,offset=100200300,lag=0\r\n"
 	expInfo := &sdlgoredis.DbInfo{
 		Fields: sdlgoredis.DbInfoFields{
-			MasterRole:          true,
+			PrimaryRole:         true,
 			ConnectedReplicaCnt: 2,
 		},
 	}
@@ -1054,7 +1054,7 @@ func TestInfoOfMasterRedisWithTwoSlavesSuccessfully(t *testing.T) {
 	r.AssertExpectations(t)
 }
 
-func TestInfoOfMasterRedisWithOneSlaveOnlineAndOtherSlaveNotOnlineSuccessfully(t *testing.T) {
+func TestInfoOfPrimaryRedisWithOneReplicaOnlineAndOtherReplicaNotOnlineSuccessfully(t *testing.T) {
 	_, r, db := setupHaEnv(true)
 	redisInfo := "# Replication\r\n" +
 		"role:master\r\n" +
@@ -1064,7 +1064,7 @@ func TestInfoOfMasterRedisWithOneSlaveOnlineAndOtherSlaveNotOnlineSuccessfully(t
 		"slave1:ip=5.6.7.8,port=6379,state=wait_bgsave,offset=100200300,lag=0\r\n"
 	expInfo := &sdlgoredis.DbInfo{
 		Fields: sdlgoredis.DbInfoFields{
-			MasterRole:          true,
+			PrimaryRole:         true,
 			ConnectedReplicaCnt: 1,
 		},
 	}
@@ -1076,7 +1076,7 @@ func TestInfoOfMasterRedisWithOneSlaveOnlineAndOtherSlaveNotOnlineSuccessfully(t
 	r.AssertExpectations(t)
 }
 
-func TestInfoOfStandaloneMasterRedisSuccessfully(t *testing.T) {
+func TestInfoOfStandalonePrimaryRedisSuccessfully(t *testing.T) {
 	_, r, db := setupHaEnv(true)
 	redisInfo := "# Replication\r\n" +
 		"role:master\r\n" +
@@ -1084,7 +1084,7 @@ func TestInfoOfStandaloneMasterRedisSuccessfully(t *testing.T) {
 		"min_slaves_good_slaves:0\r\n"
 	expInfo := &sdlgoredis.DbInfo{
 		Fields: sdlgoredis.DbInfoFields{
-			MasterRole:          true,
+			PrimaryRole:         true,
 			ConnectedReplicaCnt: 0,
 		},
 	}
@@ -1113,7 +1113,7 @@ func TestInfoWithEmptyContentSuccessfully(t *testing.T) {
 	var redisInfo string
 	expInfo := &sdlgoredis.DbInfo{
 		Fields: sdlgoredis.DbInfoFields{
-			MasterRole: false,
+			PrimaryRole: false,
 		},
 	}
 
@@ -1124,20 +1124,20 @@ func TestInfoWithEmptyContentSuccessfully(t *testing.T) {
 	r.AssertExpectations(t)
 }
 
-func TestStateWithMasterAndTwoSlaveRedisSuccessfully(t *testing.T) {
+func TestStateWithPrimaryAndTwoReplicaRedisSuccessfully(t *testing.T) {
 	_, r, s, db := setupHaEnvWithSentinels(true)
-	redisMasterState := map[string]string{
+	redisPrimaryState := map[string]string{
 		"role-reported": "master",
 	}
-	redisSlavesState := make([]interface{}, 2)
-	redisSlavesState[0] = []interface{}{
+	redisReplicasState := make([]interface{}, 2)
+	redisReplicasState[0] = []interface{}{
 		"role-reported", "slave",
 		"ip", "10.20.30.40",
 		"port", "6379",
 		"flags", "slave",
 		"master-link-status", "up",
 	}
-	redisSlavesState[1] = []interface{}{
+	redisReplicasState[1] = []interface{}{
 		"master-link-status", "up",
 		"ip", "10.20.30.50",
 		"flags", "slave",
@@ -1157,8 +1157,8 @@ func TestStateWithMasterAndTwoSlaveRedisSuccessfully(t *testing.T) {
 	}
 
 	expState := &sdlgoredis.DbState{
-		MasterDbState: sdlgoredis.MasterDbState{
-			Fields: sdlgoredis.MasterDbStateFields{
+		PrimaryDbState: sdlgoredis.PrimaryDbState{
+			Fields: sdlgoredis.PrimaryDbStateFields{
 				Role: "master",
 			},
 		},
@@ -1166,20 +1166,20 @@ func TestStateWithMasterAndTwoSlaveRedisSuccessfully(t *testing.T) {
 			States: []*sdlgoredis.ReplicaDbState{
 				&sdlgoredis.ReplicaDbState{
 					Fields: sdlgoredis.ReplicaDbStateFields{
-						Role:             "slave",
-						Ip:               "10.20.30.40",
-						Port:             "6379",
-						MasterLinkStatus: "up",
-						Flags:            "slave",
+						Role:              "slave",
+						Ip:                "10.20.30.40",
+						Port:              "6379",
+						PrimaryLinkStatus: "up",
+						Flags:             "slave",
 					},
 				},
 				&sdlgoredis.ReplicaDbState{
 					Fields: sdlgoredis.ReplicaDbStateFields{
-						Role:             "slave",
-						Ip:               "10.20.30.50",
-						Port:             "30000",
-						MasterLinkStatus: "up",
-						Flags:            "slave",
+						Role:              "slave",
+						Ip:                "10.20.30.50",
+						Port:              "30000",
+						PrimaryLinkStatus: "up",
+						Flags:             "slave",
 					},
 				},
 			},
@@ -1204,8 +1204,8 @@ func TestStateWithMasterAndTwoSlaveRedisSuccessfully(t *testing.T) {
 		},
 	}
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, nil))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, nil))
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState, nil))
 	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState, nil))
 	ret, err := db.State()
 	assert.Nil(t, err)
@@ -1213,11 +1213,11 @@ func TestStateWithMasterAndTwoSlaveRedisSuccessfully(t *testing.T) {
 	r.AssertExpectations(t)
 }
 
-func TestStateWithMasterAndOneSlaveRedisFailureInMasterRedisCall(t *testing.T) {
+func TestStateWithPrimaryAndOneReplicaRedisFailureInPrimaryRedisCall(t *testing.T) {
 	_, r, s, db := setupHaEnvWithSentinels(true)
-	redisMasterState := map[string]string{}
-	redisSlavesState := make([]interface{}, 1)
-	redisSlavesState[0] = []interface{}{
+	redisPrimaryState := map[string]string{}
+	redisReplicasState := make([]interface{}, 1)
+	redisReplicasState[0] = []interface{}{
 		"role-reported", "slave",
 		"ip", "10.20.30.40",
 		"port", "6379",
@@ -1232,18 +1232,18 @@ func TestStateWithMasterAndOneSlaveRedisFailureInMasterRedisCall(t *testing.T) {
 	}
 
 	expState := &sdlgoredis.DbState{
-		MasterDbState: sdlgoredis.MasterDbState{
+		PrimaryDbState: sdlgoredis.PrimaryDbState{
 			Err: errors.New("Some error"),
 		},
 		ReplicasDbState: &sdlgoredis.ReplicasDbState{
 			States: []*sdlgoredis.ReplicaDbState{
 				&sdlgoredis.ReplicaDbState{
 					Fields: sdlgoredis.ReplicaDbStateFields{
-						Role:             "slave",
-						Ip:               "10.20.30.40",
-						Port:             "6379",
-						MasterLinkStatus: "up",
-						Flags:            "slave",
+						Role:              "slave",
+						Ip:                "10.20.30.40",
+						Port:              "6379",
+						PrimaryLinkStatus: "up",
+						Flags:             "slave",
 					},
 				},
 			},
@@ -1261,8 +1261,8 @@ func TestStateWithMasterAndOneSlaveRedisFailureInMasterRedisCall(t *testing.T) {
 		},
 	}
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, errors.New("Some error")))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, nil))
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, errors.New("Some error")))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState, nil))
 	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState, nil))
 	ret, err := db.State()
 	assert.NotNil(t, err)
@@ -1270,13 +1270,13 @@ func TestStateWithMasterAndOneSlaveRedisFailureInMasterRedisCall(t *testing.T) {
 	r.AssertExpectations(t)
 }
 
-func TestStateWithMasterAndOneSlaveRedisFailureInSlavesRedisCall(t *testing.T) {
+func TestStateWithPrimaryAndOneReplicaRedisFailureInReplicasRedisCall(t *testing.T) {
 	_, r, s, db := setupHaEnvWithSentinels(true)
-	redisMasterState := map[string]string{
+	redisPrimaryState := map[string]string{
 		"role-reported": "master",
 	}
-	redisSlavesState := make([]interface{}, 1)
-	redisSlavesState[0] = []interface{}{}
+	redisReplicasState := make([]interface{}, 1)
+	redisReplicasState[0] = []interface{}{}
 	redisSentinelsState := make([]interface{}, 1)
 	redisSentinelsState[0] = []interface{}{
 		"ip", "10.20.30.40",
@@ -1285,8 +1285,8 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSlavesRedisCall(t *testing.T) {
 	}
 
 	expState := &sdlgoredis.DbState{
-		MasterDbState: sdlgoredis.MasterDbState{
-			Fields: sdlgoredis.MasterDbStateFields{
+		PrimaryDbState: sdlgoredis.PrimaryDbState{
+			Fields: sdlgoredis.PrimaryDbStateFields{
 				Role: "master",
 			},
 		},
@@ -1307,8 +1307,8 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSlavesRedisCall(t *testing.T) {
 		},
 	}
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, nil))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, errors.New("Some error")))
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState, errors.New("Some error")))
 	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState, nil))
 	ret, err := db.State()
 	assert.NotNil(t, err)
@@ -1316,13 +1316,13 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSlavesRedisCall(t *testing.T) {
 	r.AssertExpectations(t)
 }
 
-func TestStateWithMasterAndOneSlaveRedisFailureInSentinelsRedisCall(t *testing.T) {
+func TestStateWithPrimaryAndOneReplicaRedisFailureInSentinelsRedisCall(t *testing.T) {
 	_, r, s, db := setupHaEnvWithSentinels(true)
-	redisMasterState := map[string]string{
+	redisPrimaryState := map[string]string{
 		"role-reported": "master",
 	}
-	redisSlavesState := make([]interface{}, 1)
-	redisSlavesState[0] = []interface{}{
+	redisReplicasState := make([]interface{}, 1)
+	redisReplicasState[0] = []interface{}{
 		"role-reported", "slave",
 		"ip", "10.20.30.40",
 		"port", "6379",
@@ -1337,8 +1337,8 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSentinelsRedisCall(t *testing.T
 	}
 
 	expState := &sdlgoredis.DbState{
-		MasterDbState: sdlgoredis.MasterDbState{
-			Fields: sdlgoredis.MasterDbStateFields{
+		PrimaryDbState: sdlgoredis.PrimaryDbState{
+			Fields: sdlgoredis.PrimaryDbStateFields{
 				Role: "master",
 			},
 		},
@@ -1346,11 +1346,11 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSentinelsRedisCall(t *testing.T
 			States: []*sdlgoredis.ReplicaDbState{
 				&sdlgoredis.ReplicaDbState{
 					Fields: sdlgoredis.ReplicaDbStateFields{
-						Role:             "slave",
-						Ip:               "10.20.30.40",
-						Port:             "6379",
-						MasterLinkStatus: "up",
-						Flags:            "slave",
+						Role:              "slave",
+						Ip:                "10.20.30.40",
+						Port:              "6379",
+						PrimaryLinkStatus: "up",
+						Flags:             "slave",
 					},
 				},
 			},
@@ -1361,8 +1361,8 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSentinelsRedisCall(t *testing.T
 		},
 	}
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisMasterState, nil))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisSlavesState, nil))
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState, nil))
 	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState, errors.New("Some error")))
 	ret, err := db.State()
 	assert.NotNil(t, err)
@@ -1370,7 +1370,7 @@ func TestStateWithMasterAndOneSlaveRedisFailureInSentinelsRedisCall(t *testing.T
 	r.AssertExpectations(t)
 }
 
-func TestStateWithSingleMasterRedisSuccessfully(t *testing.T) {
+func TestStateWithSinglePrimaryRedisSuccessfully(t *testing.T) {
 	_, r, db := setupSingleEnv(true)
 	redisInfo := "# Replication\r\n" +
 		"role:master\r\n" +
@@ -1378,8 +1378,8 @@ func TestStateWithSingleMasterRedisSuccessfully(t *testing.T) {
 		"min_slaves_good_slaves:0\r\n"
 
 	expState := &sdlgoredis.DbState{
-		MasterDbState: sdlgoredis.MasterDbState{
-			Fields: sdlgoredis.MasterDbStateFields{
+		PrimaryDbState: sdlgoredis.PrimaryDbState{
+			Fields: sdlgoredis.PrimaryDbStateFields{
 				Role:  "master",
 				Flags: "master",
 			},
@@ -1393,7 +1393,7 @@ func TestStateWithSingleMasterRedisSuccessfully(t *testing.T) {
 	r.AssertExpectations(t)
 }
 
-func TestStateWithSingleMasterRedisFailureInInfoCall(t *testing.T) {
+func TestStateWithSinglePrimaryRedisFailureInInfoCall(t *testing.T) {
 	_, r, db := setupSingleEnv(true)
 	redisInfo := ""
 	expState := &sdlgoredis.DbState{}

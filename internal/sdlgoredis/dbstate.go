@@ -29,24 +29,24 @@ import (
 //DbState struct is a holder for DB state information, which is received from
 //sdlgoredis sentinel 'Master' and 'Slaves' calls output.
 type DbState struct {
-	MasterDbState    MasterDbState
+	PrimaryDbState   PrimaryDbState
 	ReplicasDbState  *ReplicasDbState
 	SentinelsDbState *SentinelsDbState
 }
 
-//MasterDbState struct is a holder for master Redis state information.
-type MasterDbState struct {
+//PrimaryDbState struct is a holder for primary Redis state information.
+type PrimaryDbState struct {
 	Err    error
-	Fields MasterDbStateFields
+	Fields PrimaryDbStateFields
 }
 
-//ReplicasDbState struct is a holder for Redis slaves state information.
+//ReplicasDbState struct is a holder for Redis replicas state information.
 type ReplicasDbState struct {
 	Err    error
 	States []*ReplicaDbState
 }
 
-//ReplicaDbState struct is a holder for one Redis slave state information.
+//ReplicaDbState struct is a holder for one Redis replica state information.
 type ReplicaDbState struct {
 	Fields ReplicaDbStateFields
 }
@@ -62,23 +62,23 @@ type SentinelDbState struct {
 	Fields SentinelDbStateFields
 }
 
-//MasterDbStateFields struct is a holder for master Redis state information
+//PrimaryDbStateFields struct is a holder for primary Redis state information
 //fields which are read from sdlgoredis sentinel 'Master' call output.
-type MasterDbStateFields struct {
+type PrimaryDbStateFields struct {
 	Role  string
 	Ip    string
 	Port  string
 	Flags string
 }
 
-//ReplicaDbStateFields struct is a holder for slave Redis state information
+//ReplicaDbStateFields struct is a holder for replica Redis state information
 //fields which are read from sdlgoredis sentinel 'Slaves' call output.
 type ReplicaDbStateFields struct {
-	Role             string
-	Ip               string
-	Port             string
-	MasterLinkStatus string
-	Flags            string
+	Role              string
+	Ip                string
+	Port              string
+	PrimaryLinkStatus string
+	Flags             string
 }
 
 //SentinelDbStateFields struct is a holder for sentinel Redis state information
@@ -90,7 +90,7 @@ type SentinelDbStateFields struct {
 }
 
 func (dbst *DbState) IsOnline() error {
-	if err := dbst.MasterDbState.IsOnline(); err != nil {
+	if err := dbst.PrimaryDbState.IsOnline(); err != nil {
 		return err
 	}
 	if dbst.ReplicasDbState != nil {
@@ -106,22 +106,22 @@ func (dbst *DbState) IsOnline() error {
 	return nil
 }
 
-func (mdbst *MasterDbState) IsOnline() error {
-	if mdbst.Err != nil {
-		return mdbst.Err
+func (pdbst *PrimaryDbState) IsOnline() error {
+	if pdbst.Err != nil {
+		return pdbst.Err
 	}
-	if mdbst.Fields.Role != "master" {
-		return fmt.Errorf("No master DB, current role '%s'", mdbst.Fields.Role)
+	if pdbst.Fields.Role != "master" {
+		return fmt.Errorf("No primary DB, current role '%s'", pdbst.Fields.Role)
 	}
-	if mdbst.Fields.Flags != "master" {
-		return fmt.Errorf("Master flags are '%s', expected 'master'", mdbst.Fields.Flags)
+	if pdbst.Fields.Flags != "master" {
+		return fmt.Errorf("Primary flags are '%s', expected 'master'", pdbst.Fields.Flags)
 	}
 	return nil
 }
 
-func (mdbst *MasterDbState) GetAddress() string {
-	if mdbst.Fields.Ip != "" || mdbst.Fields.Port != "" {
-		return mdbst.Fields.Ip + ":" + mdbst.Fields.Port
+func (pdbst *PrimaryDbState) GetAddress() string {
+	if pdbst.Fields.Ip != "" || pdbst.Fields.Port != "" {
+		return pdbst.Fields.Ip + ":" + pdbst.Fields.Port
 	} else {
 		return ""
 	}
@@ -144,8 +144,8 @@ func (rdbst *ReplicaDbState) IsOnline() error {
 		return fmt.Errorf("Replica role is '%s', expected 'slave'", rdbst.Fields.Role)
 	}
 
-	if rdbst.Fields.MasterLinkStatus != "ok" {
-		return fmt.Errorf("Replica link to the master is down")
+	if rdbst.Fields.PrimaryLinkStatus != "ok" {
+		return fmt.Errorf("Replica link to the primary is down")
 	}
 
 	if rdbst.Fields.Flags != "slave" {

@@ -40,12 +40,12 @@ type healthCheckMocks struct {
 	dbState sdlgoredis.DbState
 }
 
-func setupHcMockMasterDb(ip, port string) {
+func setupHcMockPrimaryDb(ip, port string) {
 	hcMocks = new(healthCheckMocks)
-	hcMocks.dbState.MasterDbState.Fields.Role = "master"
-	hcMocks.dbState.MasterDbState.Fields.Ip = ip
-	hcMocks.dbState.MasterDbState.Fields.Port = port
-	hcMocks.dbState.MasterDbState.Fields.Flags = "master"
+	hcMocks.dbState.PrimaryDbState.Fields.Role = "master"
+	hcMocks.dbState.PrimaryDbState.Fields.Ip = ip
+	hcMocks.dbState.PrimaryDbState.Fields.Port = port
+	hcMocks.dbState.PrimaryDbState.Fields.Flags = "master"
 }
 
 func setupHcMockReplicaDb(ip, port string) {
@@ -73,18 +73,18 @@ func setupHcMockSentinelDb(ip, port string) {
 	}
 }
 
-func addHcMockReplicaDbState(ip, port, masterLinkOk string) {
+func addHcMockReplicaDbState(ip, port, primaryLinkOk string) {
 	if hcMocks.dbState.ReplicasDbState == nil {
 		hcMocks.dbState.ReplicasDbState = new(sdlgoredis.ReplicasDbState)
 	}
 	hcMocks.dbState.ReplicasDbState.States = append(hcMocks.dbState.ReplicasDbState.States,
 		&sdlgoredis.ReplicaDbState{
 			Fields: sdlgoredis.ReplicaDbStateFields{
-				Role:             "slave",
-				Ip:               ip,
-				Port:             port,
-				MasterLinkStatus: masterLinkOk,
-				Flags:            "slave",
+				Role:              "slave",
+				Ip:                ip,
+				Port:              port,
+				PrimaryLinkStatus: primaryLinkOk,
+				Flags:             "slave",
 			},
 		},
 	)
@@ -154,7 +154,7 @@ func TestCliHealthCheckCanShowHelp(t *testing.T) {
 }
 
 func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectly(t *testing.T) {
-	setupHcMockMasterDb("10.20.30.40", "6379")
+	setupHcMockPrimaryDb("10.20.30.40", "6379")
 	addHcMockReplicaDbState("1.2.3.4", "6379", "ok")
 	addHcMockReplicaDbState("5.6.7.8", "6379", "ok")
 	addHcMockSentinelDbState("1.2.3.4", "26379", "sentinel")
@@ -164,14 +164,14 @@ func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectly(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Contains(t, stdout, "Overall status: OK")
-	assert.Contains(t, stdout, "Master (10.20.30.40:6379): OK")
+	assert.Contains(t, stdout, "Primary (10.20.30.40:6379): OK")
 	assert.Contains(t, stdout, "Replica #1 (1.2.3.4:6379): OK")
 	assert.Contains(t, stdout, "Replica #2 (5.6.7.8:6379): OK")
 
 }
 
 func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneReplicaStateNotUp(t *testing.T) {
-	setupHcMockMasterDb("10.20.30.40", "6379")
+	setupHcMockPrimaryDb("10.20.30.40", "6379")
 	addHcMockReplicaDbState("1.2.3.4", "6379", "ok")
 	addHcMockReplicaDbState("5.6.7.8", "6379", "nok")
 	addHcMockSentinelDbState("1.2.3.4", "26379", "sentinel")
@@ -182,11 +182,11 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneReplicaStateNotU
 	assert.Nil(t, err)
 	assert.Contains(t, stdout, "Overall status: NOK")
 	assert.Contains(t, stdout, "Replica #2 (5.6.7.8:6379): NOK")
-	assert.Contains(t, stdout, "Replica link to the master is down")
+	assert.Contains(t, stdout, "Replica link to the primary is down")
 }
 
 func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneSentinelStateNotUp(t *testing.T) {
-	setupHcMockMasterDb("10.20.30.40", "6379")
+	setupHcMockPrimaryDb("10.20.30.40", "6379")
 	addHcMockReplicaDbState("1.2.3.4", "6379", "ok")
 	addHcMockReplicaDbState("5.6.7.8", "6379", "ok")
 	addHcMockSentinelDbState("1.2.3.4", "26379", "some-failure")
@@ -203,7 +203,7 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneSentinelStateNot
 }
 
 func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenDbStateQueryFails(t *testing.T) {
-	setupHcMockMasterDb("10.20.30.40", "6379")
+	setupHcMockPrimaryDb("10.20.30.40", "6379")
 	hcMocks.dbErr = errors.New("Some error")
 
 	buf := new(bytes.Buffer)
@@ -224,7 +224,7 @@ func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectlyWhenDbStateIsFromRepl
 
 	assert.Nil(t, err)
 	assert.Contains(t, stdout, "Overall status: NOK")
-	assert.Contains(t, stdout, "Master (): NOK")
+	assert.Contains(t, stdout, "Primary (): NOK")
 }
 
 func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectlyWhenDbStateIsFromSentinelOnly(t *testing.T) {
@@ -234,15 +234,15 @@ func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectlyWhenDbStateIsFromSent
 
 	assert.Nil(t, err)
 	assert.Contains(t, stdout, "Overall status: NOK")
-	assert.Contains(t, stdout, "Master (): NOK")
+	assert.Contains(t, stdout, "Primary (): NOK")
 }
 
 func TestCliHealthCheckCanShowStandaloneDeploymentOkStatusCorrectly(t *testing.T) {
-	setupHcMockMasterDb("10.20.30.40", "6379")
+	setupHcMockPrimaryDb("10.20.30.40", "6379")
 
 	stdout, err := runHcCli()
 
 	assert.Nil(t, err)
 	assert.Contains(t, stdout, "Overall status: OK")
-	assert.Contains(t, stdout, "Master (10.20.30.40:6379): OK")
+	assert.Contains(t, stdout, "Primary (10.20.30.40:6379): OK")
 }

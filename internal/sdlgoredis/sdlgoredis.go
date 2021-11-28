@@ -497,13 +497,14 @@ func readRedisInfoReplyFields(input []string, info *DbInfo) {
 		if idx := strings.Index(line, "role:"); idx != -1 {
 			roleStr := line[idx+len("role:"):]
 			if roleStr == "master" {
-				info.Fields.MasterRole = true
+				info.Fields.PrimaryRole = true
 			}
 		} else if idx := strings.Index(line, "connected_slaves:"); idx != -1 {
 			cntStr := line[idx+len("connected_slaves:"):]
 			if cnt, err := strconv.ParseUint(cntStr, 10, 32); err == nil {
 				info.Fields.ConnectedReplicaCnt = uint32(cnt)
 			}
+
 		}
 	}
 }
@@ -531,10 +532,10 @@ func (db *DB) State() (*DbState, error) {
 
 func fillDbStateFromDbInfo(info *DbInfo) DbState {
 	var dbState DbState
-	if info.Fields.MasterRole == true {
+	if info.Fields.PrimaryRole == true {
 		dbState = DbState{
-			MasterDbState: MasterDbState{
-				Fields: MasterDbStateFields{
+			PrimaryDbState: PrimaryDbState{
+				Fields: PrimaryDbStateFields{
 					Role:  "master",
 					Flags: "master",
 				},

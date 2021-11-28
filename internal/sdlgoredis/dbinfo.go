@@ -31,6 +31,6 @@ type DbInfo struct {
 //DbInfoFields struct is a holder for fields, which are read from sdlgoredis
 //'info' call's output.
 type DbInfoFields struct {
-	MasterRole          bool
+	PrimaryRole         bool
 	ConnectedReplicaCnt uint32
 }

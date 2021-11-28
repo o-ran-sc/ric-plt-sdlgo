@@ -57,11 +57,11 @@ func runHealthCheck(dbCreateCb DbCreateCb) (string, error) {
 	var str string
 	var states []sdlgoredis.DbState
 	for _, dbInst := range dbCreateCb().Instances {
-		info, err := dbInst.State()
+		state, err := dbInst.State()
 		if err != nil {
 			anyErr = err
 		}
-		states = append(states, *info)
+		states = append(states, *state)
 	}
 	str = writeStateResults(states)
 	return str, anyErr
@@ -75,13 +75,15 @@ func writeStateResults(dbStates []sdlgoredis.DbState) string {
 			anyErr = err
 		}
 		str = str + fmt.Sprintf("  SDL DB backend #%d\n", (i+1))
-		mAddr := dbState.MasterDbState.GetAddress()
-		err := dbState.MasterDbState.IsOnline()
+
+		pAddr := dbState.PrimaryDbState.GetAddress()
+		err := dbState.PrimaryDbState.IsOnline()
 		if err == nil {
-			str = str + fmt.Sprintf("    Master (%s): OK\n", mAddr)
+			str = str + fmt.Sprintf("    Primary (%s): OK\n", pAddr)
 		} else {
-			str = str + fmt.Sprintf("    Master (%s): NOK\n", mAddr)
+			str = str + fmt.Sprintf("    Primary (%s): NOK\n", pAddr)
 			str = str + fmt.Sprintf("      %s\n", err.Error())
+
 		}
 		if dbState.ReplicasDbState != nil {
 			for j, rInfo := range dbState.ReplicasDbState.States {
@@ -93,6 +95,7 @@ func writeStateResults(dbStates []sdlgoredis.DbState) string {
 					str = str + fmt.Sprintf("      %s\n", err.Error())
 				}
 			}
+
 		}
 		if dbState.SentinelsDbState != nil {
 			for k, sInfo := range dbState.SentinelsDbState.States {

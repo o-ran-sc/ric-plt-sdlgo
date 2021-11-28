@@ -97,7 +97,7 @@ func getServiceAddress(db iDatabase) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return state.MasterDbState.GetAddress(), nil
+	return state.PrimaryDbState.GetAddress(), nil
 }
 
 func parseKeyNamespace(key string) (string, error) {

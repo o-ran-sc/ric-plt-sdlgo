@@ -45,10 +45,10 @@ type nsMock struct {
 func setupNamespacesCliMock(keys []string, addr string, keysErr, stateErr error) {
 	mNs = new(nsMock)
 	mNs.dbKeys = keys
-	mNs.dbState.MasterDbState.Fields.Role = "Master"
-	mNs.dbState.MasterDbState.Fields.Ip = addr
+	mNs.dbState.PrimaryDbState.Fields.Role = "Primary"
+	mNs.dbState.PrimaryDbState.Fields.Ip = addr
 	if addr != "" {
-		mNs.dbState.MasterDbState.Fields.Port = "6379"
+		mNs.dbState.PrimaryDbState.Fields.Port = "6379"
 	}
 	mNs.dbKeysErr = keysErr
 	mNs.dbStateErr = stateErr
