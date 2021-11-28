@@ -27,6 +27,7 @@ import (
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 	"github.com/spf13/cobra"
 	"os"
+	"text/tabwriter"
 )
 
 func init() {
@@ -36,15 +37,12 @@ func init() {
 func newHealthCheckCmd(dbCreateCb DbCreateCb) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "healthcheck",
-		Short: "Validate database healthiness",
-		Long:  `Validate database healthiness`,
+		Short: "Validate SDL database healthiness",
+		Long:  `Validate SDL database healthiness`,
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			out, err := runHealthCheck(dbCreateCb)
-			cmd.Println(out)
-			if err != nil {
-				cmd.PrintErrf("%s\n", buf.String())
-			}
+			states, err := runHealthCheck(dbCreateCb)
+			printHealthStatus(cmd, states)
 			return err
 		},
 	}
@@ -52,9 +50,8 @@ func newHealthCheckCmd(dbCreateCb DbCreateCb) *cobra.Command {
 	return cmd
 }
 
-func runHealthCheck(dbCreateCb DbCreateCb) (string, error) {
+func runHealthCheck(dbCreateCb DbCreateCb) ([]sdlgoredis.DbState, error) {
 	var anyErr error
-	var str string
 	var states []sdlgoredis.DbState
 	for _, dbInst := range dbCreateCb().Instances {
 		state, err := dbInst.State()
@@ -63,54 +60,103 @@ func runHealthCheck(dbCreateCb DbCreateCb) (string, error) {
 		}
 		states = append(states, *state)
 	}
-	str = writeStateResults(states)
-	return str, anyErr
+	return states, anyErr
 }
 
-func writeStateResults(dbStates []sdlgoredis.DbState) string {
-	var str string
+func printHealthStatus(cmd *cobra.Command, dbStates []sdlgoredis.DbState) {
 	var anyErr error
+	w := tabwriter.NewWriter(cmd.OutOrStdout(), 6, 4, 3, ' ', 0)
+	fmt.Fprintln(w, "CLUSTER\tROLE\tADDRESS\tSTATUS\tERROR\t")
+
 	for i, dbState := range dbStates {
 		if err := dbState.IsOnline(); err != nil {
 			anyErr = err
 		}
-		str = str + fmt.Sprintf("  SDL DB backend #%d\n", (i+1))
 
-		pAddr := dbState.PrimaryDbState.GetAddress()
-		err := dbState.PrimaryDbState.IsOnline()
-		if err == nil {
-			str = str + fmt.Sprintf("    Primary (%s): OK\n", pAddr)
-		} else {
-			str = str + fmt.Sprintf("    Primary (%s): NOK\n", pAddr)
-			str = str + fmt.Sprintf("      %s\n", err.Error())
-
+		if err := printPrimaryHealthStatus(w, i, &dbState); err != nil {
+			anyErr = err
 		}
-		if dbState.ReplicasDbState != nil {
-			for j, rInfo := range dbState.ReplicasDbState.States {
-				err := rInfo.IsOnline()
-				if err == nil {
-					str = str + fmt.Sprintf("    Replica #%d (%s): OK\n", (j+1), rInfo.GetAddress())
-				} else {
-					str = str + fmt.Sprintf("    Replica #%d (%s): NOK\n", (j+1), rInfo.GetAddress())
-					str = str + fmt.Sprintf("      %s\n", err.Error())
-				}
-			}
 
+		if err := printReplicasHealthStatus(w, i, &dbState); err != nil {
+			anyErr = err
 		}
-		if dbState.SentinelsDbState != nil {
-			for k, sInfo := range dbState.SentinelsDbState.States {
-				err := sInfo.IsOnline()
-				if err != nil {
-					str = str + fmt.Sprintf("    Sentinel #%d (%s): NOK\n", (k+1), sInfo.GetAddress())
-					str = str + fmt.Sprintf("      %s\n", err.Error())
-				}
-			}
+
+		if err := printSentinelsHealthStatus(w, i, &dbState); err != nil {
+			anyErr = err
 		}
 	}
 	if anyErr == nil {
-		str = fmt.Sprintf("Overall status: OK\n\n") + str
+		cmd.Println("Overall status: OK")
 	} else {
-		str = fmt.Sprintf("Overall status: NOK\n\n") + str
+		cmd.Println("Overall status: NOK")
 	}
-	return str
+	cmd.Println("")
+	w.Flush()
+}
+
+func printPrimaryHealthStatus(w *tabwriter.Writer, clusterID int, dbState *sdlgoredis.DbState) error {
+	addr := printAddress(dbState.PrimaryDbState.GetAddress())
+	err := dbState.PrimaryDbState.IsOnline()
+	if err != nil {
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n", clusterID, "primary", addr, "NOK", err.Error())
+	} else {
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n", clusterID, "primary", addr, "OK", "<none>")
+	}
+	return err
+}
+
+func printReplicasHealthStatus(w *tabwriter.Writer, clusterID int, dbState *sdlgoredis.DbState) error {
+	var anyErr error
+
+	if dbState.ReplicasDbState != nil {
+		if dbState.ConfigNodeCnt > len(dbState.ReplicasDbState.States)+1 {
+			err := fmt.Errorf("Configured DBAAS nodes %d but only 1 primary and %d replicas",
+				dbState.ConfigNodeCnt, len(dbState.ReplicasDbState.States))
+			fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n", clusterID, "replica", "<none>", "NOK", err.Error())
+			anyErr = err
+		}
+		for _, state := range dbState.ReplicasDbState.States {
+			if err := printReplicaHealthStatus(w, clusterID, state); err != nil {
+				anyErr = err
+			}
+		}
+	}
+	return anyErr
+}
+
+func printReplicaHealthStatus(w *tabwriter.Writer, clusterID int, dbState *sdlgoredis.ReplicaDbState) error {
+	addr := printAddress(dbState.GetAddress())
+	err := dbState.IsOnline()
+	if err != nil {
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n", clusterID, "replica", addr, "NOK", err.Error())
+	} else {
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n", clusterID, "replica", addr, "OK", "<none>")
+	}
+	return err
+}
+
+func printSentinelsHealthStatus(w *tabwriter.Writer, clusterID int, dbState *sdlgoredis.DbState) error {
+	var anyErr error
+	if dbState.SentinelsDbState != nil {
+		for _, state := range dbState.SentinelsDbState.States {
+			if err := printSentinelHealthStatus(w, clusterID, state); err != nil {
+				anyErr = err
+			}
+		}
+	}
+	return anyErr
+}
+func printSentinelHealthStatus(w *tabwriter.Writer, clusterID int, dbState *sdlgoredis.SentinelDbState) error {
+	err := dbState.IsOnline()
+	if err != nil {
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t\n", clusterID, "sentinel", dbState.GetAddress(), "NOK", err.Error())
+	}
+	return err
+}
+
+func printAddress(address string) string {
+	if address == "" {
+		return "<none>"
+	}
+	return address
 }

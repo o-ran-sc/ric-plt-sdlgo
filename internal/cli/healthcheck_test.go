@@ -40,37 +40,33 @@ type healthCheckMocks struct {
 	dbState sdlgoredis.DbState
 }
 
-func setupHcMockPrimaryDb(ip, port string) {
+func setupHcMockPrimaryDb(ip, port string, nodes int) {
 	hcMocks = new(healthCheckMocks)
+	hcMocks.dbState.ConfigNodeCnt = nodes
 	hcMocks.dbState.PrimaryDbState.Fields.Role = "master"
 	hcMocks.dbState.PrimaryDbState.Fields.Ip = ip
 	hcMocks.dbState.PrimaryDbState.Fields.Port = port
 	hcMocks.dbState.PrimaryDbState.Fields.Flags = "master"
-}
-
-func setupHcMockReplicaDb(ip, port string) {
-	hcMocks = new(healthCheckMocks)
 	hcMocks.dbState.ReplicasDbState = new(sdlgoredis.ReplicasDbState)
-	hcMocks.dbState.ReplicasDbState.States = []*sdlgoredis.ReplicaDbState{
-		&sdlgoredis.ReplicaDbState{
-			Fields: sdlgoredis.ReplicaDbStateFields{
-				Role: "slave",
-			},
-		},
-	}
+	hcMocks.dbState.ReplicasDbState.States = []*sdlgoredis.ReplicaDbState{}
+	hcMocks.dbState.SentinelsDbState = new(sdlgoredis.SentinelsDbState)
+	hcMocks.dbState.SentinelsDbState.States = []*sdlgoredis.SentinelDbState{}
 }
 
-func setupHcMockSentinelDb(ip, port string) {
+func setupHcMockReplicaDb(nodes int) {
 	hcMocks = new(healthCheckMocks)
+	hcMocks.dbState.ConfigNodeCnt = nodes
+	hcMocks.dbState.ReplicasDbState = new(sdlgoredis.ReplicasDbState)
+	hcMocks.dbState.ReplicasDbState.States = []*sdlgoredis.ReplicaDbState{}
 	hcMocks.dbState.SentinelsDbState = new(sdlgoredis.SentinelsDbState)
-	hcMocks.dbState.SentinelsDbState.States = []*sdlgoredis.SentinelDbState{
-		&sdlgoredis.SentinelDbState{
-			Fields: sdlgoredis.SentinelDbStateFields{
-				Ip:   ip,
-				Port: port,
-			},
-		},
-	}
+	hcMocks.dbState.SentinelsDbState.States = []*sdlgoredis.SentinelDbState{}
+}
+
+func setupHcMockSentinelDb(ip, port string, nodes int) {
+	hcMocks = new(healthCheckMocks)
+	hcMocks.dbState.ConfigNodeCnt = nodes
+	hcMocks.dbState.SentinelsDbState = new(sdlgoredis.SentinelsDbState)
+	hcMocks.dbState.SentinelsDbState.States = []*sdlgoredis.SentinelDbState{}
 }
 
 func addHcMockReplicaDbState(ip, port, primaryLinkOk string) {
@@ -154,7 +150,13 @@ func TestCliHealthCheckCanShowHelp(t *testing.T) {
 }
 
 func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectly(t *testing.T) {
-	setupHcMockPrimaryDb("10.20.30.40", "6379")
+	expOut :=
+		"Overall status: OK\n\n" +
+			"CLUSTER   ROLE      ADDRESS            STATUS   ERROR    \n" +
+			"0         primary   10.20.30.40:6379   OK       <none>   \n" +
+			"0         replica   1.2.3.4:6379       OK       <none>   \n" +
+			"0         replica   5.6.7.8:6379       OK       <none>   \n"
+	setupHcMockPrimaryDb("10.20.30.40", "6379", 3)
 	addHcMockReplicaDbState("1.2.3.4", "6379", "ok")
 	addHcMockReplicaDbState("5.6.7.8", "6379", "ok")
 	addHcMockSentinelDbState("1.2.3.4", "26379", "sentinel")
@@ -163,15 +165,17 @@ func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectly(t *testing.T) {
 	stdout, err := runHcCli()
 
 	assert.Nil(t, err)
-	assert.Contains(t, stdout, "Overall status: OK")
-	assert.Contains(t, stdout, "Primary (10.20.30.40:6379): OK")
-	assert.Contains(t, stdout, "Replica #1 (1.2.3.4:6379): OK")
-	assert.Contains(t, stdout, "Replica #2 (5.6.7.8:6379): OK")
-
+	assert.Equal(t, expOut, stdout)
 }
 
 func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneReplicaStateNotUp(t *testing.T) {
-	setupHcMockPrimaryDb("10.20.30.40", "6379")
+	expOut :=
+		"Overall status: NOK\n\n" +
+			"CLUSTER   ROLE      ADDRESS            STATUS   ERROR                                 \n" +
+			"0         primary   10.20.30.40:6379   OK       <none>                                \n" +
+			"0         replica   1.2.3.4:6379       OK       <none>                                \n" +
+			"0         replica   5.6.7.8:6379       NOK      Replica link to the primary is down   \n"
+	setupHcMockPrimaryDb("10.20.30.40", "6379", 3)
 	addHcMockReplicaDbState("1.2.3.4", "6379", "ok")
 	addHcMockReplicaDbState("5.6.7.8", "6379", "nok")
 	addHcMockSentinelDbState("1.2.3.4", "26379", "sentinel")
@@ -180,13 +184,18 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneReplicaStateNotU
 	stdout, err := runHcCli()
 
 	assert.Nil(t, err)
-	assert.Contains(t, stdout, "Overall status: NOK")
-	assert.Contains(t, stdout, "Replica #2 (5.6.7.8:6379): NOK")
-	assert.Contains(t, stdout, "Replica link to the primary is down")
+	assert.Equal(t, expOut, stdout)
 }
 
 func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneSentinelStateNotUp(t *testing.T) {
-	setupHcMockPrimaryDb("10.20.30.40", "6379")
+	expOut :=
+		"Overall status: NOK\n\n" +
+			"CLUSTER   ROLE       ADDRESS            STATUS   ERROR                                                    \n" +
+			"0         primary    10.20.30.40:6379   OK       <none>                                                   \n" +
+			"0         replica    1.2.3.4:6379       OK       <none>                                                   \n" +
+			"0         replica    5.6.7.8:6379       OK       <none>                                                   \n" +
+			"0         sentinel   1.2.3.4:26379      NOK      Sentinel flags are 'some-failure', expected 'sentinel'   \n"
+	setupHcMockPrimaryDb("10.20.30.40", "6379", 3)
 	addHcMockReplicaDbState("1.2.3.4", "6379", "ok")
 	addHcMockReplicaDbState("5.6.7.8", "6379", "ok")
 	addHcMockSentinelDbState("1.2.3.4", "26379", "some-failure")
@@ -195,15 +204,27 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenOneSentinelStateNot
 	stdout, err := runHcCli()
 
 	assert.Nil(t, err)
-	assert.Contains(t, stdout, "Overall status: NOK")
-	assert.Contains(t, stdout, "Replica #1 (1.2.3.4:6379): OK")
-	assert.Contains(t, stdout, "Replica #2 (5.6.7.8:6379): OK")
-	assert.Contains(t, stdout, "Sentinel #1 (1.2.3.4:26379): NOK")
-	assert.Contains(t, stdout, "Sentinel flags are 'some-failure', expected 'sentinel'")
+	assert.Equal(t, expOut, stdout)
+}
+
+func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenNoReplicas(t *testing.T) {
+	expOut :=
+		"Overall status: NOK\n\n" +
+			"CLUSTER   ROLE      ADDRESS            STATUS   ERROR                                                        \n" +
+			"0         primary   10.20.30.40:6379   OK       <none>                                                       \n" +
+			"0         replica   <none>             NOK      Configured DBAAS nodes 3 but only 1 primary and 0 replicas   \n"
+	setupHcMockPrimaryDb("10.20.30.40", "6379", 3)
+	addHcMockSentinelDbState("1.2.3.4", "26379", "sentinel")
+	addHcMockSentinelDbState("5.6.7.8", "26379", "sentinel")
+
+	stdout, err := runHcCli()
+
+	assert.Nil(t, err)
+	assert.Equal(t, expOut, stdout)
 }
 
 func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenDbStateQueryFails(t *testing.T) {
-	setupHcMockPrimaryDb("10.20.30.40", "6379")
+	setupHcMockPrimaryDb("10.20.30.40", "6379", 3)
 	hcMocks.dbErr = errors.New("Some error")
 
 	buf := new(bytes.Buffer)
@@ -214,35 +235,48 @@ func TestCliHealthCheckCanShowHaDeploymentStatusCorrectlyWhenDbStateQueryFails(t
 	stderr := buf.String()
 
 	assert.Equal(t, hcMocks.dbErr, err)
-	assert.Contains(t, stderr, "Error: "+hcMocks.dbErr.Error())
+	assert.Contains(t, stderr, "Error: Some error")
 }
 
 func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectlyWhenDbStateIsFromReplicaOnly(t *testing.T) {
-	setupHcMockReplicaDb("1.2.3.4", "6379")
+	expOut :=
+		"Overall status: NOK\n\n" +
+			"CLUSTER   ROLE      ADDRESS        STATUS   ERROR                                 \n" +
+			"0         primary   <none>         NOK      No primary DB, current role ''        \n" +
+			"0         replica   1.2.3.4:6379   NOK      Replica link to the primary is down   \n" +
+			"0         replica   5.6.7.8:6379   NOK      Replica link to the primary is down   \n"
+	setupHcMockReplicaDb(3)
+	addHcMockReplicaDbState("1.2.3.4", "6379", "nok")
+	addHcMockReplicaDbState("5.6.7.8", "6379", "nok")
 
 	stdout, err := runHcCli()
 
 	assert.Nil(t, err)
-	assert.Contains(t, stdout, "Overall status: NOK")
-	assert.Contains(t, stdout, "Primary (): NOK")
+	assert.Equal(t, expOut, stdout)
 }
 
 func TestCliHealthCheckCanShowHaDeploymentOkStatusCorrectlyWhenDbStateIsFromSentinelOnly(t *testing.T) {
-	setupHcMockSentinelDb("1.2.3.4", "26379")
+	expOut :=
+		"Overall status: NOK\n\n" +
+			"CLUSTER   ROLE      ADDRESS   STATUS   ERROR                            \n" +
+			"0         primary   <none>    NOK      No primary DB, current role ''   \n"
+	setupHcMockSentinelDb("1.2.3.4", "26379", 3)
 
 	stdout, err := runHcCli()
 
 	assert.Nil(t, err)
-	assert.Contains(t, stdout, "Overall status: NOK")
-	assert.Contains(t, stdout, "Primary (): NOK")
+	assert.Equal(t, expOut, stdout)
 }
 
 func TestCliHealthCheckCanShowStandaloneDeploymentOkStatusCorrectly(t *testing.T) {
-	setupHcMockPrimaryDb("10.20.30.40", "6379")
+	expOut :=
+		"Overall status: OK\n\n" +
+			"CLUSTER   ROLE      ADDRESS            STATUS   ERROR    \n" +
+			"0         primary   10.20.30.40:6379   OK       <none>   \n"
+	setupHcMockPrimaryDb("10.20.30.40", "6379", 1)
 
 	stdout, err := runHcCli()
 
 	assert.Nil(t, err)
-	assert.Contains(t, stdout, "Overall status: OK")
-	assert.Contains(t, stdout, "Primary (10.20.30.40:6379): OK")
+	assert.Equal(t, expOut, stdout)
 }

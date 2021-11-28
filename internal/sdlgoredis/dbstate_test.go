@@ -37,6 +37,10 @@ func setupDbState() *dbStateMock {
 	return new(dbStateMock)
 }
 
+func (ds *dbStateMock) setError(err error) {
+	ds.state.Err = err
+}
+
 func (ds *dbStateMock) setPrimaryError(err error) {
 	ds.state.PrimaryDbState.Err = err
 }
@@ -84,6 +88,14 @@ func (ds *dbStateMock) addSentinelFields(ip, port, flags string) {
 	newState.Fields.Port = port
 	newState.Fields.Flags = flags
 	ds.state.SentinelsDbState.States = append(ds.state.SentinelsDbState.States, newState)
+}
+
+func TestIsOnlineFailureIfErrorHasSet(t *testing.T) {
+	testErr := errors.New("Some error")
+	st := setupDbState()
+	st.setError(testErr)
+	err := st.state.IsOnline()
+	assert.Equal(t, testErr, err)
 }
 
 func TestIsOnlineWhenSinglePrimarySuccessfully(t *testing.T) {
