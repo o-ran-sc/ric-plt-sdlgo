@@ -24,6 +24,7 @@ package sdlgoredis
 
 import (
 	"github.com/go-redis/redis/v7"
+	"strconv"
 )
 
 type Sentinel struct {
@@ -55,12 +56,18 @@ func newRedisSentinel(cfg *Config, addr string) *Sentinel {
 
 func (s *Sentinel) GetDbState() (*DbState, error) {
 	state := new(DbState)
+	state.ConfigNodeCnt, state.Err = strconv.Atoi(s.Cfg.nodeCnt)
 	pState, pErr := s.getPrimaryDbState()
 	rState, rErr := s.getReplicasState()
 	sState, sErr := s.getSentinelsState()
 	state.PrimaryDbState = *pState
 	state.ReplicasDbState = rState
 	state.SentinelsDbState = sState
+
+	if state.Err != nil {
+		return state, state.Err
+	}
+
 	if pErr != nil {
 		return state, pErr
 	}
