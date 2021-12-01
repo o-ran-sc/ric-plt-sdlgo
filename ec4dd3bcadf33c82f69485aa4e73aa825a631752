@@ -16,6 +16,46 @@
       "message": "For review.",
       "revId": "ec4dd3bcadf33c82f69485aa4e73aa825a631752",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "5c7a4740_987fa6f4",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-12-01T07:37:39Z",
+      "side": 1,
+      "message": "Looks really nice. I have one question.",
+      "revId": "ec4dd3bcadf33c82f69485aa4e73aa825a631752",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "0ffac7ed_004b550b",
+        "filename": "internal/sdlgoredis/sdlgoredis.go",
+        "patchSetId": 2
+      },
+      "lineNbr": 179,
+      "author": {
+        "id": 1001247
+      },
+      "writtenOn": "2021-12-01T07:37:39Z",
+      "side": 1,
+      "message": "Should we have a config validator for mandatory env variables? Now if new DBAAS_NODE_COUNT is not set the strconv.Atoi() function usage will fail and produces an error. And it is not clear why it happens.",
+      "range": {
+        "startLine": 179,
+        "startChar": 2,
+        "endLine": 179,
+        "endChar": 53
+      },
+      "revId": "ec4dd3bcadf33c82f69485aa4e73aa825a631752",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
