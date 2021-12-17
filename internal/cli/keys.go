@@ -67,9 +67,12 @@ func newKeysCmd(sdlCb SyncStorageCreateCb) *cobra.Command {
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sdlgoredis.SetDbLogger(&buf)
-			keysArgs := newKeysArgs(args[0], "*")
+			keysArgs := NewKeysArgs(args[0], "*")
 			if len(args) > 1 {
 				keysArgs.pattern = args[1]
+			}
+			if err := keysArgs.Validate(); err != nil {
+				return err
 			}
 			keys, err := runListKeys(sdlCb, keysArgs)
 			if err != nil {

@@ -138,3 +138,30 @@ func TestKeysCmdFails(t *testing.T) {
 	assert.Equal(t, expNokErr, err)
 	assert.Contains(t, result, expNokOut)
 }
+
+func TestKeysCmdInvalidNamespaceArgument(t *testing.T) {
+	expNokErrNsAsterisk1 := errors.New("Invalid character (*) in given * namespace argument.")
+	expNokErrNsAsterisk2 := errors.New("Invalid character (*) in given foo* namespace argument.")
+	expHelp := "Usage:\n  keys <namespace> [pattern|default '*'] [flags]"
+	tests := []struct {
+		args   []string
+		expOut string
+		expErr error
+	}{
+		{args: []string{"*"}, expErr: expNokErrNsAsterisk1, expOut: expHelp},
+		{args: []string{"foo*"}, expErr: expNokErrNsAsterisk2, expOut: expHelp},
+	}
+
+	for _, test := range tests {
+		buf := new(bytes.Buffer)
+		cmd := cli.NewKeysCmdForTest(newMockSdlApi)
+		cmd.SetOut(buf)
+		cmd.SetErr(buf)
+		cmd.SetArgs(test.args)
+		err := cmd.Execute()
+		result := buf.String()
+
+		assert.Equal(t, test.expErr, err)
+		assert.Contains(t, result, test.expOut)
+	}
+}
