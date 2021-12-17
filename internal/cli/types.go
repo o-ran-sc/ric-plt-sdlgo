@@ -22,7 +22,11 @@
 
 package cli
 
-import "gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+import (
+	"fmt"
+	"strings"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
+)
 
 //iDatabase is an interface towards database backend, for the time being
 //sdlgoredis.DB implements this interface.
@@ -58,12 +62,20 @@ type keysArgs struct {
 	pattern string
 }
 
-//newKeysArgs constructs a new keysArgs struct.
-func newKeysArgs(ns string, pattern string) keysArgs {
+//NewKeysArgs constructs a new keysArgs struct.
+func NewKeysArgs(ns string, pattern string) keysArgs {
 	return keysArgs{
 		ns:      ns,
 		pattern: pattern,
 	}
+}
+
+//Validate command arguments in keysArgs.
+func (k keysArgs) Validate() error {
+	if strings.Contains(k.ns, "*") {
+		return fmt.Errorf("Invalid character (*) in given %s namespace argument.", k.ns)
+	}
+	return nil
 }
 
 //nsMap is a map having SDL DB cluster address as a key and namespace map of type nsKeyMap as a value
