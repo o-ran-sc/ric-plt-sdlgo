@@ -1273,7 +1273,7 @@ func TestInfoWithSomeStatisticsOfStandalonePrimaryRedis(t *testing.T) {
 		"# CPU\r\n" +
 		"used_cpu_sys:1775.254919\r\n" +
 		"# Commandstats\r\n" +
-		"# cmdstat_role:calls=1,usec=3,usec_per_call=3.00\r\n" +
+		"cmdstat_role:calls=1,usec=3,usec_per_call=3.00\r\n" +
 		"# Keyspace\r\n" +
 		"db0:keys=4,expires=0,avg_ttl=0"
 	expInfo := &sdlgoredis.DbInfo{

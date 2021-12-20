@@ -110,3 +110,5 @@ type KeyspaceValues struct {
 type KeyspaceInfoFields struct {
 	Db KeyspaceValues
 }
+
+type ConfigInfo map[string]string

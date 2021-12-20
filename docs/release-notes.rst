@@ -29,6 +29,11 @@ This document provides the release notes of the sdlgo.
 
 Version history
 ---------------
+[0.9.1] - 2021-12-20
+
+* Refactor and reduce code complexity, no API changes
+* Validate namespace argument in SDL CLI get keys -command
+
 [0.9.0] - 2021-12-16
 
 * SDL CLI tool
