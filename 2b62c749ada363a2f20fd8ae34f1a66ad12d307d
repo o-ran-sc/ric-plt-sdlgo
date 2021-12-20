@@ -16,6 +16,23 @@
       "message": "I\u0027ll send a new patchset....",
       "revId": "2b62c749ada363a2f20fd8ae34f1a66ad12d307d",
       "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    },
+    {
+      "unresolved": false,
+      "key": {
+        "uuid": "923d7e7e_ce3c8483",
+        "filename": "/PATCHSET_LEVEL",
+        "patchSetId": 2
+      },
+      "lineNbr": 0,
+      "author": {
+        "id": 1000002
+      },
+      "writtenOn": "2021-12-20T12:59:03Z",
+      "side": 1,
+      "message": "Looks good to me.",
+      "revId": "2b62c749ada363a2f20fd8ae34f1a66ad12d307d",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
     }
   ]
 }
