@@ -497,8 +497,8 @@ func (db *DB) Info() (*DbInfo, error) {
 	}
 
 	result := strings.Split(strings.ReplaceAll(resultStr, "\r\n", "\n"), "\n")
-	err = readRedisInfoReplyFields(result, &info)
-	return &info, err
+	readRedisInfoReplyFields(result, &info)
+	return &info, nil
 }
 
 func lineContains(line, substr string) bool {
@@ -558,9 +558,8 @@ func getCommandstatsValues(values string) (string, string, string) {
 	return calls, usec, usecPerCall
 }
 
-func updateCommandstatsValues(i interface{}, line, cmdstat string) {
+func updateCommandstatsValues(i interface{}, values string) {
 	stype := reflect.ValueOf(i).Elem()
-	values := getFieldValueStr(line, cmdstat)
 	callsStr, usecStr, usecPerCallStr := getCommandstatsValues(values)
 
 	callsField := stype.FieldByName("Calls")
@@ -580,9 +579,8 @@ func getKeyspaceValues(values string) (string, string, string) {
 	return keys, expires, avgttl
 }
 
-func updateKeyspaceValues(i interface{}, line, keyspace string) {
+func updateKeyspaceValues(i interface{}, values string) {
 	stype := reflect.ValueOf(i).Elem()
-	values := getFieldValueStr(line, keyspace)
 	keysStr, expiresStr, avgttlStr := getKeyspaceValues(values)
 
 	keysField := stype.FieldByName("Keys")
@@ -595,90 +593,167 @@ func updateKeyspaceValues(i interface{}, line, keyspace string) {
 	avgttlField.Set(reflect.ValueOf(getUint32FromString(avgttlStr)))
 }
 
-func readRedisInfoReplyFields(input []string, info *DbInfo) error {
+func updateServerInfoFields(config ConfigInfo, info *DbInfo) {
+	if value, ok := config["uptime_in_days"]; ok {
+		info.Fields.Server.UptimeInDays = getUint32FromString(value)
+	}
+}
+
+func updateClientInfoFields(config ConfigInfo, info *DbInfo) {
+	if value, ok := config["connected_clients"]; ok {
+		info.Fields.Clients.ConnectedClients = getUint32FromString(value)
+	}
+	if value, ok := config["client_recent_max_input_buffer"]; ok {
+		info.Fields.Clients.ClientRecentMaxInputBuffer = getUint32FromString(value)
+	}
+	if value, ok := config["client_recent_max_output_buffer"]; ok {
+		info.Fields.Clients.ClientRecentMaxOutputBuffer = getUint32FromString(value)
+	}
+}
+
+func updateMemoryInfoFields(config ConfigInfo, info *DbInfo) {
+	if value, ok := config["used_memory"]; ok {
+		info.Fields.Memory.UsedMemory = getUint64FromString(value)
+	}
+	if value, ok := config["used_memory_human"]; ok {
+		info.Fields.Memory.UsedMemoryHuman = value
+	}
+	if value, ok := config["used_memory_rss"]; ok {
+		info.Fields.Memory.UsedMemoryRss = getUint64FromString(value)
+	}
+	if value, ok := config["used_memory_rss_human"]; ok {
+		info.Fields.Memory.UsedMemoryRssHuman = value
+	}
+	if value, ok := config["used_memory_peak"]; ok {
+		info.Fields.Memory.UsedMemoryPeak = getUint64FromString(value)
+	}
+	if value, ok := config["used_memory_peak_human"]; ok {
+		info.Fields.Memory.UsedMemoryPeakHuman = value
+	}
+	if value, ok := config["used_memory_peak_perc"]; ok {
+		info.Fields.Memory.UsedMemoryPeakPerc = value
+	}
+	if value, ok := config["mem_fragmentation_ratio"]; ok {
+		info.Fields.Memory.MemFragmentationRatio = getFloat32FromString(value)
+	}
+	if value, ok := config["mem_fragmentation_bytes"]; ok {
+		info.Fields.Memory.MemFragmentationBytes = getUint32FromString(value)
+	}
+}
+
+func updateStatsInfoFields(config ConfigInfo, info *DbInfo) {
+	if value, ok := config["total_connections_received"]; ok {
+		info.Fields.Stats.TotalConnectionsReceived = getUint32FromString(value)
+	}
+	if value, ok := config["total_commands_processed"]; ok {
+		info.Fields.Stats.TotalCommandsProcessed = getUint32FromString(value)
+	}
+	if value, ok := config["sync_full"]; ok {
+		info.Fields.Stats.SyncFull = getUint32FromString(value)
+	}
+	if value, ok := config["sync_partial_ok"]; ok {
+		info.Fields.Stats.SyncPartialOk = getUint32FromString(value)
+	}
+	if value, ok := config["sync_partial_err"]; ok {
+		info.Fields.Stats.SyncPartialErr = getUint32FromString(value)
+	}
+	if value, ok := config["pubsub_channels"]; ok {
+		info.Fields.Stats.PubsubChannels = getUint32FromString(value)
+	}
+}
+
+func updateCpuInfoFields(config ConfigInfo, info *DbInfo) {
+	if value, ok := config["used_cpu_sys"]; ok {
+		info.Fields.Cpu.UsedCpuSys = getFloat64FromString(value)
+	}
+	if value, ok := config["used_cpu_user"]; ok {
+		info.Fields.Cpu.UsedCpuUser = getFloat64FromString(value)
+	}
+}
+
+func updateCommandstatsInfoFields(config ConfigInfo, info *DbInfo) {
+	if values, ok := config["cmdstat_replconf"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatReplconf, values)
+	}
+	if values, ok := config["cmdstat_keys"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatKeys, values)
+	}
+	if values, ok := config["cmdstat_role"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatRole, values)
+	}
+	if values, ok := config["cmdstat_psync"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatPsync, values)
+	}
+	if values, ok := config["cmdstat_mset"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatMset, values)
+	}
+	if values, ok := config["cmdstat_publish"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatPublish, values)
+	}
+	if values, ok := config["cmdstat_info"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatInfo, values)
+	}
+	if values, ok := config["cmdstat_ping"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatPing, values)
+	}
+	if values, ok := config["cmdstat_client"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatClient, values)
+	}
+	if values, ok := config["cmdstat_command"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatCommand, values)
+	}
+	if values, ok := config["cmdstat_subscribe"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatSubscribe, values)
+	}
+	if values, ok := config["cmdstat_monitor"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatMonitor, values)
+	}
+	if values, ok := config["cmdstat_config"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatConfig, values)
+	}
+	if values, ok := config["cmdstat_slaveof"]; ok {
+		updateCommandstatsValues(&info.Fields.Commandstats.CmdstatSlaveof, values)
+	}
+}
+
+func updateKeyspaceInfoFields(config ConfigInfo, info *DbInfo) {
+	if values, ok := config["db0"]; ok {
+		updateKeyspaceValues(&info.Fields.Keyspace.Db, values)
+	}
+}
+
+func getConfigInfo(input []string) ConfigInfo {
+	config := ConfigInfo{}
 	for _, line := range input {
-		switch {
-		case lineContains(line, "role:") && !lineContains(line, "_role:"):
-			if "master" == getFieldValueStr(line, "role:") {
-				info.Fields.PrimaryRole = true
+		if i := strings.Index(line, ":"); i != -1 {
+			if key := strings.TrimSpace(line[:i]); len(key) > 0 {
+				if len(line) > i {
+					config[key] = strings.TrimSpace(line[i+1:])
+				}
 			}
-		case lineContains(line, "connected_slaves:"):
-			info.Fields.ConnectedReplicaCnt = getUint32FromString(getFieldValueStr(line, "connected_slaves:"))
-		case lineContains(line, "uptime_in_days:"):
-			info.Fields.Server.UptimeInDays = getUint32FromString(getFieldValueStr(line, "uptime_in_days:"))
-		case lineContains(line, "connected_clients:"):
-			info.Fields.Clients.ConnectedClients = getUint32FromString(getFieldValueStr(line, "connected_clients:"))
-		case lineContains(line, "client_recent_max_input_buffer:"):
-			info.Fields.Clients.ClientRecentMaxInputBuffer = getUint32FromString(getFieldValueStr(line, "client_recent_max_input_buffer:"))
-		case lineContains(line, "client_recent_max_output_buffer:"):
-			info.Fields.Clients.ClientRecentMaxOutputBuffer = getUint32FromString(getFieldValueStr(line, "client_recent_max_output_buffer:"))
-		case lineContains(line, "used_memory:"):
-			info.Fields.Memory.UsedMemory = getUint64FromString(getFieldValueStr(line, "used_memory:"))
-		case lineContains(line, "used_memory_human:"):
-			info.Fields.Memory.UsedMemoryHuman = getFieldValueStr(line, "used_memory_human:")
-		case lineContains(line, "used_memory_rss:"):
-			info.Fields.Memory.UsedMemoryRss = getUint64FromString(getFieldValueStr(line, "used_memory_rss:"))
-		case lineContains(line, "used_memory_rss_human:"):
-			info.Fields.Memory.UsedMemoryRssHuman = getFieldValueStr(line, "used_memory_rss_human:")
-		case lineContains(line, "used_memory_peak:"):
-			info.Fields.Memory.UsedMemoryPeak = getUint64FromString(getFieldValueStr(line, "used_memory_peak:"))
-		case lineContains(line, "used_memory_peak_human:"):
-			info.Fields.Memory.UsedMemoryPeakHuman = getFieldValueStr(line, "used_memory_peak_human:")
-		case lineContains(line, "used_memory_peak_perc:"):
-			info.Fields.Memory.UsedMemoryPeakPerc = getFieldValueStr(line, "used_memory_peak_perc:")
-		case lineContains(line, "mem_fragmentation_ratio:"):
-			info.Fields.Memory.MemFragmentationRatio = getFloat32FromString(getFieldValueStr(line, "mem_fragmentation_ratio:"))
-		case lineContains(line, "mem_fragmentation_bytes:"):
-			info.Fields.Memory.MemFragmentationBytes = getUint32FromString(getFieldValueStr(line, "mem_fragmentation_bytes:"))
-		case lineContains(line, "total_connections_received:"):
-			info.Fields.Stats.TotalConnectionsReceived = getUint32FromString(getFieldValueStr(line, "total_connections_received:"))
-		case lineContains(line, "total_commands_processed:"):
-			info.Fields.Stats.TotalCommandsProcessed = getUint32FromString(getFieldValueStr(line, "total_commands_processed:"))
-		case lineContains(line, "sync_full:"):
-			info.Fields.Stats.SyncFull = getUint32FromString(getFieldValueStr(line, "sync_full:"))
-		case lineContains(line, "sync_partial_ok:"):
-			info.Fields.Stats.SyncPartialOk = getUint32FromString(getFieldValueStr(line, "sync_partial_ok:"))
-		case lineContains(line, "sync_partial_err:"):
-			info.Fields.Stats.SyncPartialErr = getUint32FromString(getFieldValueStr(line, "sync_partial_err:"))
-		case lineContains(line, "pubsub_channels:"):
-			info.Fields.Stats.PubsubChannels = getUint32FromString(getFieldValueStr(line, "pubsub_channels:"))
-		case lineContains(line, "used_cpu_sys:"):
-			info.Fields.Cpu.UsedCpuSys = getFloat64FromString(getFieldValueStr(line, "used_cpu_sys:"))
-		case lineContains(line, "used_cpu_user:"):
-			info.Fields.Cpu.UsedCpuUser = getFloat64FromString(getFieldValueStr(line, "used_cpu_user:"))
-		case lineContains(line, "cmdstat_replconf:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatReplconf, line, "cmdstat_replconf:")
-		case lineContains(line, "cmdstat_keys:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatKeys, line, "cmdstat_keys:")
-		case lineContains(line, "cmdstat_role:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatRole, line, "cmdstat_role:")
-		case lineContains(line, "cmdstat_psync:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatPsync, line, "cmdstat_psync:")
-		case lineContains(line, "cmdstat_mset:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatMset, line, "cmdstat_mset:")
-		case lineContains(line, "cmdstat_publish:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatPublish, line, "cmdstat_publish:")
-		case lineContains(line, "cmdstat_info:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatInfo, line, "cmdstat_info:")
-		case lineContains(line, "cmdstat_ping:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatPing, line, "cmdstat_ping:")
-		case lineContains(line, "cmdstat_client:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatClient, line, "cmdstat_client:")
-		case lineContains(line, "cmdstat_command:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatCommand, line, "cmdstat_command:")
-		case lineContains(line, "cmdstat_subscribe:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatSubscribe, line, "cmdstat_subscribe:")
-		case lineContains(line, "cmdstat_monitor:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatMonitor, line, "cmdstat_monitor:")
-		case lineContains(line, "cmdstat_config:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatConfig, line, "cmdstat_config:")
-		case lineContains(line, "cmdstat_slaveof:"):
-			updateCommandstatsValues(&info.Fields.Commandstats.CmdstatSlaveof, line, "cmdstat_slaveof:")
-		case lineContains(line, "db0:"):
-			updateKeyspaceValues(&info.Fields.Keyspace.Db, line, "db0:")
 		}
 	}
-	return nil
+	return config
+}
+
+func readRedisInfoReplyFields(input []string, info *DbInfo) {
+	config := getConfigInfo(input)
+
+	if value, ok := config["role"]; ok {
+		if "master" == value {
+			info.Fields.PrimaryRole = true
+		}
+	}
+	if value, ok := config["connected_slaves"]; ok {
+		info.Fields.ConnectedReplicaCnt = getUint32FromString(value)
+	}
+	updateServerInfoFields(config, info)
+	updateClientInfoFields(config, info)
+	updateMemoryInfoFields(config, info)
+	updateStatsInfoFields(config, info)
+	updateCpuInfoFields(config, info)
+	updateCommandstatsInfoFields(config, info)
+	updateKeyspaceInfoFields(config, info)
 }
 
 func (db *DB) State() (*DbState, error) {
