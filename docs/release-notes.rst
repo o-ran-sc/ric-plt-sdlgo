@@ -29,6 +29,10 @@ This document provides the release notes of the sdlgo.
 
 Version history
 ---------------
+[0.9.2] - 2021-12-22
+
+* Fix SDL CLI healthcheck to ignore ghost Redis Sentinel entries
+
 [0.9.1] - 2021-12-20
 
 * Refactor and reduce code complexity, no API changes
