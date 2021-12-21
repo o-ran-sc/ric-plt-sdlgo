@@ -134,7 +134,11 @@ func (s *Sentinel) getSentinelsState() (*SentinelsDbState, error) {
 	if redisErr == nil {
 		for _, redisSentinel := range redisVal {
 			sentinelState := readSentinelState(redisSentinel.([]interface{}))
-			states.States = append(states.States, sentinelState)
+			// Ignore a sentinel entry with zero port, because missing of fix
+			// for the Redis Bug #9240.
+			if sentinelState.Fields.Port != "0" {
+				states.States = append(states.States, sentinelState)
+			}
 		}
 	}
 	states.Err = redisErr

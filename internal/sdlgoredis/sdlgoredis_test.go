@@ -1454,6 +1454,34 @@ func TestStateWithPrimaryAndTwoReplicaRedisFailureWhenIntConversionFails(t *test
 	r.AssertExpectations(t)
 }
 
+// Test case to test ignoring of a sentinel entry with zero port. Implementation has been
+// done because we miss the fix for the Redis Bug #9240.
+func TestStateWithPrimaryAndTwoReplicaFirstSentinelStateIgnoredBecauseZeroPortBugRedisSuccessfully(t *testing.T) {
+	_, r, s, db := setupHaEnvWithSentinels(true, "3")
+
+	redisPrimaryState := newMockRedisMasterCallResp("master", "10.20.30.30", "6379", "master")
+	redisReplicasState := newMockRedisSlavesCall()
+	redisReplicasState.add("slave", "10.20.30.40", "6379", "up", "slave")
+	redisReplicasState.add("slave", "10.20.30.50", "30000", "up", "slave")
+	redisSentinelsState := newMockRedisSentinelsCall()
+	redisSentinelsState.add("10.20.30.40", "0", "s_down,sentinel,disconnected")
+	redisSentinelsState.add("10.20.30.50", "26379", "sentinel")
+
+	expState := newExpDbState(3, nil)
+	expState.addPrimary("master", "10.20.30.30", "6379", "master", nil)
+	expState.addReplica("slave", "10.20.30.40", "6379", "up", "slave", nil)
+	expState.addReplica("slave", "10.20.30.50", "30000", "up", "slave", nil)
+	expState.addSentinel("10.20.30.50", "26379", "sentinel", nil)
+
+	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
+	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
+	ret, err := db.State()
+	assert.Nil(t, err)
+	assert.Equal(t, expState.s, *ret)
+	r.AssertExpectations(t)
+}
+
 func TestStateWithSinglePrimaryRedisSuccessfully(t *testing.T) {
 	_, r, db := setupSingleEnv(true, "1")
 	redisInfo := "# Replication\r\n" +
