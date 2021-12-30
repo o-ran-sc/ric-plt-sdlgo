@@ -43,7 +43,7 @@ var (
 )
 
 func newStatisticsCmd(dbCreateCb DbCreateCb) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "statistics",
 		Short:   "Display statistics.",
 		Long:    statsLong,
@@ -59,6 +59,8 @@ func newStatisticsCmd(dbCreateCb DbCreateCb) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.SetOut(os.Stdout)
+	return cmd
 }
 
 func runStats(dbCreateCb DbCreateCb) ([]*sdlgoredis.DbStatistics, error) {

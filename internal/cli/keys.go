@@ -59,7 +59,7 @@ var (
 )
 
 func newKeysCmd(sdlCb SyncStorageCreateCb) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "keys <namespace> [pattern|default '*']",
 		Short:   "List keys in the given namespace matching key search pattern",
 		Long:    keysLong,
@@ -83,6 +83,8 @@ func newKeysCmd(sdlCb SyncStorageCreateCb) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.SetOut(os.Stdout)
+	return cmd
 }
 
 func runListKeys(sdlCb SyncStorageCreateCb, args keysArgs) ([]string, error) {

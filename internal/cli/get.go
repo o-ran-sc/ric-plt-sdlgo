@@ -59,7 +59,7 @@ Prints namespaces, keys or keys data in the given namespace.`
 )
 
 func newGetCmd(sdlCb SyncStorageCreateCb) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "get <namespace> <key> [<key2> <key3>... <keyN>]",
 		Short:   "Display one or many resources",
 		Long:    getLong,
@@ -78,6 +78,8 @@ func newGetCmd(sdlCb SyncStorageCreateCb) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.SetOut(os.Stdout)
+	return cmd
 }
 
 func runGet(sdlCb SyncStorageCreateCb, args []string) (map[string]interface{}, error) {

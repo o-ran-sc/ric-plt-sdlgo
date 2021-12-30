@@ -29,6 +29,10 @@ This document provides the release notes of the sdlgo.
 
 Version history
 ---------------
+[0.9.3] - 2021-12-30
+
+* Fix SDL CLI get -command to write results stdout stream when command success
+
 [0.9.2] - 2021-12-22
 
 * Fix SDL CLI healthcheck to ignore ghost Redis Sentinel entries
