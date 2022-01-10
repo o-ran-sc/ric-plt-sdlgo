@@ -1,6 +1,6 @@
 /*
    Copyright (c) 2021 AT&T Intellectual Property.
-   Copyright (c) 2018-2021 Nokia.
+   Copyright (c) 2018-2022 Nokia.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -31,4 +31,5 @@ var (
 	NewRemoveCmdForTest     = newRemoveCmd
 	NewNamespacesCmdForTest = newNamespacesCmd
 	NewStatisticsCmd        = newStatisticsCmd
+	NewCompletionCmdForTest = newCompletionCmd
 )

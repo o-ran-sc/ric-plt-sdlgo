@@ -1,6 +1,6 @@
 ..
 ..  Copyright (c) 2019 AT&T Intellectual Property.
-..  Copyright (c) 2019 Nokia.
+..  Copyright (c) 2019-2022 Nokia.
 ..
 ..  Licensed under the Creative Commons Attribution 4.0 International
 ..  Public License (the "License"); you may not use this file except
@@ -29,6 +29,10 @@ This document provides the release notes of the sdlgo.
 
 Version history
 ---------------
+[0.9.4] - 2022-01-12
+
+* SDL CLI command to generate sdlcli shell completion file for bash
+
 [0.9.3] - 2021-12-30
 
 * Fix SDL CLI get -command to write results stdout stream when command success
