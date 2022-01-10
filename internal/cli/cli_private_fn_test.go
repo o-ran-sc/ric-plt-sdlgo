@@ -31,4 +31,5 @@ var (
 	NewRemoveCmdForTest     = newRemoveCmd
 	NewNamespacesCmdForTest = newNamespacesCmd
 	NewStatisticsCmd        = newStatisticsCmd
+	NewCompletionCmdForTest = newCompletionCmd
 )
