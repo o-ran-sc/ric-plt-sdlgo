@@ -1,6 +1,5 @@
 /*
-   Copyright (c) 2019 AT&T Intellectual Property.
-   Copyright (c) 2018-2019 Nokia.
+   Copyright (c) 2022 Nokia.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,7 +19,7 @@
  * platform project (RICP).
  */
 
-package sdlgo_test
+package main
 
 import (
 	"fmt"
@@ -34,21 +33,33 @@ func init() {
 	sdl = sdlgo.NewSyncStorage()
 }
 
-func ExampleSdlInstance_Set() {
-	err := sdl.Set("namespace", "stringdata", "data", "intdata", 42)
+func exampleSet() {
+	err := sdl.Set("my-namespace", "somestringdata", "data", "someintdata", 42)
 	if err != nil {
 		panic(err)
 	} else {
 		fmt.Println("Data written successfully")
 	}
-	// Output: Data written successfully
 }
 
-func ExampleSdlInstance_Get() {
-	retMap, err := sdl.Get("namespace", []string{"stringdata", "intdata"})
+func exampleGet() {
+	retMap, err := sdl.Get("my-namespace", []string{"somestringdata", "someintdata"})
 	if err != nil {
 		panic(err)
 	} else {
-		fmt.Println(retMap)
+		fmt.Println("Data read successfully")
+		for k, v := range retMap {
+			fmt.Println("\t", k, "key value is", v)
+		}
 	}
+}
+
+func exampleClose() {
+	sdl.Close()
+}
+
+func main() {
+	exampleSet()
+	exampleGet()
+	exampleClose()
 }
