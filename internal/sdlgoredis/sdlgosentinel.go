@@ -23,20 +23,22 @@
 package sdlgoredis
 
 import (
+	"context"
 	"fmt"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"strconv"
 )
 
 type Sentinel struct {
+	ctx context.Context
 	IredisSentinelClient
 	Cfg *Config
 }
 
 type IredisSentinelClient interface {
-	Master(name string) *redis.StringStringMapCmd
-	Slaves(name string) *redis.SliceCmd
-	Sentinels(name string) *redis.SliceCmd
+	Master(ctx context.Context, name string) *redis.StringStringMapCmd
+	Slaves(ctx context.Context, name string) *redis.SliceCmd
+	Sentinels(ctx context.Context, name string) *redis.SliceCmd
 }
 
 type RedisSentinelCreateCb func(cfg *Config, addr string) *Sentinel
@@ -44,6 +46,7 @@ type RedisSentinelCreateCb func(cfg *Config, addr string) *Sentinel
 func newRedisSentinel(cfg *Config, addr string) *Sentinel {
 	redisAddress := addr + ":" + cfg.sentinelPort
 	return &Sentinel{
+		ctx: context.TODO(),
 		IredisSentinelClient: redis.NewSentinelClient(&redis.Options{
 			Addr:       redisAddress,
 			Password:   "", // no password set
@@ -82,7 +85,7 @@ func (s *Sentinel) GetDbState() (*DbState, error) {
 
 func (s *Sentinel) getPrimaryDbState() (*PrimaryDbState, error) {
 	state := new(PrimaryDbState)
-	redisVal, redisErr := s.Master(s.Cfg.masterName).Result()
+	redisVal, redisErr := s.Master(s.ctx, s.Cfg.masterName).Result()
 	if redisErr == nil {
 		state.Fields.Ip = redisVal["ip"]
 		state.Fields.Port = redisVal["port"]
@@ -97,7 +100,7 @@ func (s *Sentinel) getReplicasState() (*ReplicasDbState, error) {
 	states := new(ReplicasDbState)
 	states.States = make([]*ReplicaDbState, 0)
 
-	redisVal, redisErr := s.Slaves(s.Cfg.masterName).Result()
+	redisVal, redisErr := s.Slaves(s.ctx, s.Cfg.masterName).Result()
 	if redisErr == nil {
 		for _, redisReplica := range redisVal {
 			replicaState := readReplicaState(redisReplica.([]interface{}))
@@ -130,7 +133,7 @@ func (s *Sentinel) getSentinelsState() (*SentinelsDbState, error) {
 	states := new(SentinelsDbState)
 	states.States = make([]*SentinelDbState, 0)
 
-	redisVal, redisErr := s.Sentinels(s.Cfg.masterName).Result()
+	redisVal, redisErr := s.Sentinels(s.ctx, s.Cfg.masterName).Result()
 	if redisErr == nil {
 		for _, redisSentinel := range redisVal {
 			sentinelState := readSentinelState(redisSentinel.([]interface{}))
