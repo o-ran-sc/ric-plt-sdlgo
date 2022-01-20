@@ -23,9 +23,10 @@
 package sdlgoredis_test
 
 import (
+	"context"
 	"errors"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"strconv"
@@ -45,15 +46,15 @@ type MockOS struct {
 	mock.Mock
 }
 
-func (m *pubSubMock) Channel() <-chan *redis.Message {
+func (m *pubSubMock) Channel(opts ...redis.ChannelOption) <-chan *redis.Message {
 	return m.Called().Get(0).(chan *redis.Message)
 }
 
-func (m *pubSubMock) Subscribe(channels ...string) error {
+func (m *pubSubMock) Subscribe(ctx context.Context, channels ...string) error {
 	return m.Called().Error(0)
 }
 
-func (m *pubSubMock) Unsubscribe(channels ...string) error {
+func (m *pubSubMock) Unsubscribe(ctx context.Context, channels ...string) error {
 	return m.Called().Error(0)
 }
 
@@ -61,7 +62,7 @@ func (m *pubSubMock) Close() error {
 	return m.Called().Error(0)
 }
 
-func (m *clientMock) Command() *redis.CommandsInfoCmd {
+func (m *clientMock) Command(ctx context.Context) *redis.CommandsInfoCmd {
 	return m.Called().Get(0).(*redis.CommandsInfoCmd)
 }
 
@@ -69,75 +70,75 @@ func (m *clientMock) Close() error {
 	return m.Called().Error(0)
 }
 
-func (m *clientMock) Subscribe(channels ...string) *redis.PubSub {
+func (m *clientMock) Subscribe(ctx context.Context, channels ...string) *redis.PubSub {
 	return m.Called(channels).Get(0).(*redis.PubSub)
 }
 
-func (m *clientMock) MSet(pairs ...interface{}) *redis.StatusCmd {
+func (m *clientMock) MSet(ctx context.Context, pairs ...interface{}) *redis.StatusCmd {
 	return m.Called(pairs).Get(0).(*redis.StatusCmd)
 }
 
-func (m *clientMock) Do(args ...interface{}) *redis.Cmd {
+func (m *clientMock) Do(ctx context.Context, args ...interface{}) *redis.Cmd {
 	return m.Called(args).Get(0).(*redis.Cmd)
 }
 
-func (m *clientMock) MGet(keys ...string) *redis.SliceCmd {
+func (m *clientMock) MGet(ctx context.Context, keys ...string) *redis.SliceCmd {
 	return m.Called(keys).Get(0).(*redis.SliceCmd)
 }
 
-func (m *clientMock) Del(keys ...string) *redis.IntCmd {
+func (m *clientMock) Del(ctx context.Context, keys ...string) *redis.IntCmd {
 	return m.Called(keys).Get(0).(*redis.IntCmd)
 }
 
-func (m *clientMock) Keys(pattern string) *redis.StringSliceCmd {
+func (m *clientMock) Keys(ctx context.Context, pattern string) *redis.StringSliceCmd {
 	return m.Called(pattern).Get(0).(*redis.StringSliceCmd)
 }
 
-func (m *clientMock) SetNX(key string, value interface{}, expiration time.Duration) *redis.BoolCmd {
+func (m *clientMock) SetNX(ctx context.Context, key string, value interface{}, expiration time.Duration) *redis.BoolCmd {
 	return m.Called(key, value, expiration).Get(0).(*redis.BoolCmd)
 }
 
-func (m *clientMock) SAdd(key string, members ...interface{}) *redis.IntCmd {
+func (m *clientMock) SAdd(ctx context.Context, key string, members ...interface{}) *redis.IntCmd {
 	return m.Called(key, members).Get(0).(*redis.IntCmd)
 }
 
-func (m *clientMock) SRem(key string, members ...interface{}) *redis.IntCmd {
+func (m *clientMock) SRem(ctx context.Context, key string, members ...interface{}) *redis.IntCmd {
 	return m.Called(key, members).Get(0).(*redis.IntCmd)
 }
 
-func (m *clientMock) SMembers(key string) *redis.StringSliceCmd {
+func (m *clientMock) SMembers(ctx context.Context, key string) *redis.StringSliceCmd {
 	return m.Called(key).Get(0).(*redis.StringSliceCmd)
 }
 
-func (m *clientMock) SIsMember(key string, member interface{}) *redis.BoolCmd {
+func (m *clientMock) SIsMember(ctx context.Context, key string, member interface{}) *redis.BoolCmd {
 	return m.Called(key, member).Get(0).(*redis.BoolCmd)
 }
 
-func (m *clientMock) SCard(key string) *redis.IntCmd {
+func (m *clientMock) SCard(ctx context.Context, key string) *redis.IntCmd {
 	return m.Called(key).Get(0).(*redis.IntCmd)
 }
 
-func (m *clientMock) PTTL(key string) *redis.DurationCmd {
+func (m *clientMock) PTTL(ctx context.Context, key string) *redis.DurationCmd {
 	return m.Called(key).Get(0).(*redis.DurationCmd)
 }
 
-func (m *clientMock) Eval(script string, keys []string, args ...interface{}) *redis.Cmd {
+func (m *clientMock) Eval(ctx context.Context, script string, keys []string, args ...interface{}) *redis.Cmd {
 	return m.Called(script, keys).Get(0).(*redis.Cmd)
 }
 
-func (m *clientMock) EvalSha(sha1 string, keys []string, args ...interface{}) *redis.Cmd {
+func (m *clientMock) EvalSha(ctx context.Context, sha1 string, keys []string, args ...interface{}) *redis.Cmd {
 	return m.Called(sha1, keys, args).Get(0).(*redis.Cmd)
 }
 
-func (m *clientMock) ScriptExists(scripts ...string) *redis.BoolSliceCmd {
+func (m *clientMock) ScriptExists(ctx context.Context, scripts ...string) *redis.BoolSliceCmd {
 	return m.Called(scripts).Get(0).(*redis.BoolSliceCmd)
 }
 
-func (m *clientMock) ScriptLoad(script string) *redis.StringCmd {
+func (m *clientMock) ScriptLoad(ctx context.Context, script string) *redis.StringCmd {
 	return m.Called(script).Get(0).(*redis.StringCmd)
 }
 
-func (m *clientMock) Info(section ...string) *redis.StringCmd {
+func (m *clientMock) Info(ctx context.Context, section ...string) *redis.StringCmd {
 	return m.Called(section).Get(0).(*redis.StringCmd)
 }
 
@@ -145,24 +146,24 @@ type MockRedisSentinel struct {
 	mock.Mock
 }
 
-func (m *MockRedisSentinel) Master(name string) *redis.StringStringMapCmd {
+func (m *MockRedisSentinel) Master(ctx context.Context, name string) *redis.StringStringMapCmd {
 	a := m.Called(name)
 	return a.Get(0).(*redis.StringStringMapCmd)
 }
 
-func (m *MockRedisSentinel) Slaves(name string) *redis.SliceCmd {
+func (m *MockRedisSentinel) Slaves(ctx context.Context, name string) *redis.SliceCmd {
 	a := m.Called(name)
 	return a.Get(0).(*redis.SliceCmd)
 }
 
-func (m *MockRedisSentinel) Sentinels(name string) *redis.SliceCmd {
+func (m *MockRedisSentinel) Sentinels(ctx context.Context, name string) *redis.SliceCmd {
 	a := m.Called(name)
 	return a.Get(0).(*redis.SliceCmd)
 }
 
 func setSubscribeNotifications() (*pubSubMock, sdlgoredis.SubscribeFn) {
 	mock := new(pubSubMock)
-	return mock, func(client sdlgoredis.RedisClient, channels ...string) sdlgoredis.Subscriber {
+	return mock, func(ctx context.Context, client sdlgoredis.RedisClient, channels ...string) sdlgoredis.Subscriber {
 		return mock
 	}
 }
