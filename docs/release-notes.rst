@@ -29,6 +29,12 @@ This document provides the release notes of the sdlgo.
 
 Version history
 ---------------
+
+[0.9.5] - 2022-01-20
+
+* Pump Redis client version to v8.11.4 and fix Redis APIs to have a Golang
+  Context type of argument.
+
 [0.9.4] - 2022-01-12
 
 * SDL CLI command to generate sdlcli shell completion file for bash
