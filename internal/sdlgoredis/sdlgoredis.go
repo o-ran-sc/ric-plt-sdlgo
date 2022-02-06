@@ -38,6 +38,8 @@ import (
 	"time"
 )
 
+const EventSeparator = "___"
+
 type ChannelNotificationCb func(channel string, payload ...string)
 type RedisClientCreator func(addr, port, clusterName string, isHa bool) RedisClient
 
@@ -47,9 +49,14 @@ type intChannels struct {
 	exit          chan bool
 }
 
+type chEvt struct {
+	channelPrefix string
+	cb            ChannelNotificationCb
+}
+
 type sharedCbMap struct {
 	m     sync.Mutex
-	cbMap map[string]ChannelNotificationCb
+	cbMap map[string]chEvt
 }
 
 type Config struct {
@@ -158,7 +165,7 @@ func CreateDB(client RedisClient, subscribe SubscribeFn, sentinelCreateCb RedisS
 		sentinel:     sentinelCreateCb,
 		subscribe:    subscribe,
 		redisModules: true,
-		sCbMap:       &sharedCbMap{cbMap: make(map[string]ChannelNotificationCb, 0)},
+		sCbMap:       &sharedCbMap{cbMap: make(map[string]chEvt, 0)},
 		ch: intChannels{
 			addChannel:    make(chan string),
 			removeChannel: make(chan string),
@@ -300,15 +307,14 @@ func (db *DB) UnsubscribeChannelDB(channels ...string) {
 	}
 }
 
-func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, eventSeparator string, channels ...string) {
+func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix string, channels ...string) {
 	if db.sCbMap.Count() == 0 {
 		for _, v := range channels {
-			db.sCbMap.Add(v, cb)
+			db.sCbMap.Add(v, cb, channelPrefix)
 		}
 
 		go func(sCbMap *sharedCbMap,
-			channelPrefix,
-			eventSeparator string,
+			channelPrefix string,
 			ch intChannels,
 			channels ...string) {
 			sub := db.subscribe(db.ctx, db.client, channels...)
@@ -317,9 +323,9 @@ func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, even
 			for {
 				select {
 				case msg := <-rxChannel:
-					cb, ok := lCbMap[msg.Channel]
+					chEvt, ok := lCbMap[msg.Channel]
 					if ok {
-						cb(strings.TrimPrefix(msg.Channel, channelPrefix), strings.Split(msg.Payload, eventSeparator)...)
+						chEvt.cb(strings.TrimPrefix(msg.Channel, chEvt.channelPrefix), strings.Split(msg.Payload, EventSeparator)...)
 					}
 				case channel := <-ch.addChannel:
 					lCbMap = sCbMap.GetMapCopy()
@@ -336,11 +342,11 @@ func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, even
 					}
 				}
 			}
-		}(db.sCbMap, channelPrefix, eventSeparator, db.ch, channels...)
+		}(db.sCbMap, channelPrefix, db.ch, channels...)
 
 	} else {
 		for _, v := range channels {
-			db.sCbMap.Add(v, cb)
+			db.sCbMap.Add(v, cb, channelPrefix)
 			db.ch.addChannel <- v
 		}
 	}
@@ -887,10 +893,10 @@ func (db *DB) PExpireIE(key string, data interface{}, expiration time.Duration) 
 	return errors.New("Lock not held")
 }
 
-func (sCbMap *sharedCbMap) Add(channel string, cb ChannelNotificationCb) {
+func (sCbMap *sharedCbMap) Add(channel string, cb ChannelNotificationCb, channelPrefix string) {
 	sCbMap.m.Lock()
 	defer sCbMap.m.Unlock()
-	sCbMap.cbMap[channel] = cb
+	sCbMap.cbMap[channel] = chEvt{channelPrefix, cb}
 }
 
 func (sCbMap *sharedCbMap) Remove(channel string) {
@@ -905,10 +911,10 @@ func (sCbMap *sharedCbMap) Count() int {
 	return len(sCbMap.cbMap)
 }
 
-func (sCbMap *sharedCbMap) GetMapCopy() map[string]ChannelNotificationCb {
+func (sCbMap *sharedCbMap) GetMapCopy() map[string]chEvt {
 	sCbMap.m.Lock()
 	defer sCbMap.m.Unlock()
-	mapCopy := make(map[string]ChannelNotificationCb, 0)
+	mapCopy := make(map[string]chEvt, 0)
 	for i, v := range sCbMap.cbMap {
 		mapCopy[i] = v
 	}
