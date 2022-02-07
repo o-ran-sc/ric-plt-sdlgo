@@ -37,8 +37,8 @@ type mockDB struct {
 	mock.Mock
 }
 
-func (m *mockDB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, eventSeparator string, channels ...string) {
-	m.Called(cb, channelPrefix, eventSeparator, channels)
+func (m *mockDB) SubscribeChannelDB(cb func(string, ...string), channels ...string) {
+	m.Called(cb, channels)
 }
 
 func (m *mockDB) UnsubscribeChannelDB(channels ...string) {
@@ -193,7 +193,7 @@ func TestSubscribeChannel(t *testing.T) {
 	expectedCB := func(channel string, events ...string) {}
 	expectedChannels := []string{"{namespace},channel1", "{namespace},channel2"}
 
-	m.On("SubscribeChannelDB", mock.AnythingOfType("func(string, ...string)"), "{namespace},", "___", expectedChannels).Return()
+	m.On("SubscribeChannelDB", mock.AnythingOfType("func(string, ...string)"), expectedChannels).Return()
 	i.SubscribeChannel(expectedCB, "channel1", "channel2")
 	m.AssertExpectations(t)
 }

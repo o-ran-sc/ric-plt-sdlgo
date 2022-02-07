@@ -900,7 +900,7 @@ func TestSubscribeChannelDBSubscribeRXUnsubscribe(t *testing.T) {
 	ps, r, db := setupHaEnv(true)
 	ch := make(chan *redis.Message)
 	msg := redis.Message{
-		Channel: "{prefix}channel",
+		Channel: "{prefix},channel",
 		Pattern: "pattern",
 		Payload: "event",
 	}
@@ -912,9 +912,9 @@ func TestSubscribeChannelDBSubscribeRXUnsubscribe(t *testing.T) {
 	db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel = channel
-	}, "{prefix}", "---", "{prefix}channel")
+	}, "{prefix},channel")
 	ch <- &msg
-	db.UnsubscribeChannelDB("{prefix}channel")
+	db.UnsubscribeChannelDB("{prefix},channel")
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 1, count)
 	assert.Equal(t, "channel", receivedChannel)
@@ -926,12 +926,12 @@ func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
 	ps, r, db := setupHaEnv(true)
 	ch := make(chan *redis.Message)
 	msg1 := redis.Message{
-		Channel: "{prefix}channel1",
+		Channel: "{prefix},channel1",
 		Pattern: "pattern",
 		Payload: "event",
 	}
 	msg2 := redis.Message{
-		Channel: "{prefix}channel2",
+		Channel: "{prefix},channel2",
 		Pattern: "pattern",
 		Payload: "event",
 	}
@@ -945,18 +945,18 @@ func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
 	db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel1 = channel
-	}, "{prefix}", "---", "{prefix}channel1")
+	}, "{prefix},channel1")
 	ch <- &msg1
 	receivedChannel2 := ""
 	db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel2 = channel
-	}, "{prefix}", "---", "{prefix}channel2")
+	}, "{prefix},channel2")
 
 	time.Sleep(1 * time.Second)
-	db.UnsubscribeChannelDB("{prefix}channel1")
+	db.UnsubscribeChannelDB("{prefix},channel1")
 	ch <- &msg2
-	db.UnsubscribeChannelDB("{prefix}channel2")
+	db.UnsubscribeChannelDB("{prefix},channel2")
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 2, count)
 	assert.Equal(t, "channel1", receivedChannel1)
@@ -965,11 +965,54 @@ func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
 	ps.AssertExpectations(t)
 }
 
+func TestSubscribeChannelDBTwoSubscribesWithUnequalPrefixAndUnsubscribes(t *testing.T) {
+	ps, r, db := setupHaEnv(true)
+	ch := make(chan *redis.Message)
+	msg1 := redis.Message{
+		Channel: "{prefix1},channel",
+		Pattern: "pattern",
+		Payload: "event",
+	}
+	msg2 := redis.Message{
+		Channel: "{prefix2},channel",
+		Pattern: "pattern",
+		Payload: "event",
+	}
+	ps.On("Channel").Return(ch)
+	ps.On("Subscribe").Return(nil)
+	ps.On("Unsubscribe").Return(nil)
+	ps.On("Unsubscribe").Return(nil)
+	ps.On("Close").Return(nil)
+	count := 0
+	receivedChannel1 := ""
+	db.SubscribeChannelDB(func(channel string, payload ...string) {
+		count++
+		receivedChannel1 = channel
+	}, "{prefix1},channel")
+	ch <- &msg1
+	receivedChannel2 := ""
+	db.SubscribeChannelDB(func(channel string, payload ...string) {
+		count++
+		receivedChannel2 = channel
+	}, "{prefix2},channel")
+
+	time.Sleep(1 * time.Second)
+	db.UnsubscribeChannelDB("{prefix1},channel")
+	ch <- &msg2
+	db.UnsubscribeChannelDB("{prefix2},channel")
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, 2, count)
+	assert.Equal(t, "channel", receivedChannel1)
+	assert.Equal(t, "channel", receivedChannel2)
+	r.AssertExpectations(t)
+	ps.AssertExpectations(t)
+}
+
 func TestSubscribeChannelReDBSubscribeAfterUnsubscribe(t *testing.T) {
 	ps, r, db := setupHaEnv(true)
 	ch := make(chan *redis.Message)
 	msg := redis.Message{
-		Channel: "{prefix}channel",
+		Channel: "{prefix},channel",
 		Pattern: "pattern",
 		Payload: "event",
 	}
@@ -982,21 +1025,47 @@ func TestSubscribeChannelReDBSubscribeAfterUnsubscribe(t *testing.T) {
 	db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel = channel
-	}, "{prefix}", "---", "{prefix}channel")
+	}, "{prefix},channel")
 	ch <- &msg
-	db.UnsubscribeChannelDB("{prefix}channel")
+	db.UnsubscribeChannelDB("{prefix},channel")
 	time.Sleep(1 * time.Second)
 
 	db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel = channel
-	}, "{prefix}", "---", "{prefix}channel")
+	}, "{prefix}", "---", "{prefix},channel")
 	ch <- &msg
-	db.UnsubscribeChannelDB("{prefix}channel")
+	db.UnsubscribeChannelDB("{prefix},channel")
 
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 2, count)
 	assert.Equal(t, "channel", receivedChannel)
+	r.AssertExpectations(t)
+	ps.AssertExpectations(t)
+}
+
+func TestSubscribeChannelDBSubscribeReceivedEventIgnoredIfChannelNameIsUnknown(t *testing.T) {
+	ps, r, db := setupHaEnv(true)
+	ch := make(chan *redis.Message)
+	msg := redis.Message{
+		Channel: "missingNsPrefixchannel",
+		Pattern: "pattern",
+		Payload: "event",
+	}
+	ps.On("Channel").Return(ch)
+	ps.On("Unsubscribe").Return(nil)
+	ps.On("Close").Return(nil)
+	count := 0
+	receivedChannel := ""
+	db.SubscribeChannelDB(func(channel string, payload ...string) {
+		count++
+		receivedChannel = channel
+	}, "{prefix},channel")
+	ch <- &msg
+	db.UnsubscribeChannelDB("{prefix},channel")
+	time.Sleep(1 * time.Second)
+	assert.Equal(t, 0, count)
+	assert.Equal(t, "", receivedChannel)
 	r.AssertExpectations(t)
 	ps.AssertExpectations(t)
 }
