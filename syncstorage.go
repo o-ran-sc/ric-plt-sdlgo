@@ -27,6 +27,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 	"hash/crc32"
 	"io"
 	"reflect"
@@ -42,10 +43,9 @@ import (
 //SdlInstance where namespace can be defined only at SdlInstance instance creation
 //time.
 type SyncStorage struct {
-	eventSeparator string
-	mutex          sync.Mutex
-	tmp            []byte
-	db             *Database
+	mutex sync.Mutex
+	tmp   []byte
+	db    *Database
 }
 
 //NewSyncStorage creates a new sdl instance.
@@ -56,8 +56,7 @@ func NewSyncStorage() *SyncStorage {
 
 func newSyncStorage(db *Database) *SyncStorage {
 	return &SyncStorage{
-		eventSeparator: "___",
-		db:             db,
+		db: db,
 	}
 }
 
@@ -94,7 +93,7 @@ func getHash(s string) uint32 {
 //events received from different channels, callbacks are called in series one by one.
 func (s *SyncStorage) SubscribeChannel(ns string, cb func(string, ...string), channels ...string) error {
 	nsPrefix := getNsPrefix(ns)
-	s.getDbBackend(ns).SubscribeChannelDB(cb, nsPrefix, s.eventSeparator, s.setNamespaceToChannels(nsPrefix, channels...)...)
+	s.getDbBackend(ns).SubscribeChannelDB(cb, s.setNamespaceToChannels(nsPrefix, channels...)...)
 	return nil
 }
 
@@ -123,8 +122,8 @@ func (s *SyncStorage) checkChannelsAndEvents(cmd string, channelsAndEvents []str
 	}
 	for i, v := range channelsAndEvents {
 		if i%2 != 0 {
-			if strings.Contains(v, s.eventSeparator) {
-				return fmt.Errorf("%s: event %s contains illegal substring (\"%s\")", cmd, v, s.eventSeparator)
+			if strings.Contains(v, sdlgoredis.EventSeparator) {
+				return fmt.Errorf("%s: event %s contains illegal substring (\"%s\")", cmd, v, sdlgoredis.EventSeparator)
 			}
 		}
 	}
@@ -217,7 +216,7 @@ func (s *SyncStorage) prepareChannelsAndEvents(nsPrefix string, channelsAndEvent
 		}
 		_, exists := channelEventMap[v]
 		if exists {
-			channelEventMap[v] = channelEventMap[v] + s.eventSeparator + channelsAndEvents[i+1]
+			channelEventMap[v] = channelEventMap[v] + sdlgoredis.EventSeparator + channelsAndEvents[i+1]
 		} else {
 			channelEventMap[v] = channelsAndEvents[i+1]
 		}
@@ -636,11 +635,11 @@ type SyncStorageLock struct {
 }
 
 func getNsPrefix(ns string) string {
-	return "{" + ns + "},"
+	return "{" + ns + "}" + sdlgoredis.NsSeparator
 }
 
 type iDatabase interface {
-	SubscribeChannelDB(cb func(string, ...string), channelPrefix, eventSeparator string, channels ...string)
+	SubscribeChannelDB(cb func(string, ...string), channels ...string)
 	UnsubscribeChannelDB(channels ...string)
 	MSet(pairs ...interface{}) error
 	MSetMPub(channelsAndEvents []string, pairs ...interface{}) error

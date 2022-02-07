@@ -30,6 +30,10 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.9.6] - 2022-02-07
+
+* Fix multi-namespace SDL event subscribe
+
 [0.9.5] - 2022-01-20
 
 * Pump Redis client version to v8.11.4 and fix Redis APIs to have a Golang

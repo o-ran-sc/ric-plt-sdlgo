@@ -38,6 +38,9 @@ import (
 	"time"
 )
 
+const EventSeparator = "___"
+const NsSeparator = ","
+
 type ChannelNotificationCb func(channel string, payload ...string)
 type RedisClientCreator func(addr, port, clusterName string, isHa bool) RedisClient
 
@@ -300,15 +303,13 @@ func (db *DB) UnsubscribeChannelDB(channels ...string) {
 	}
 }
 
-func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, eventSeparator string, channels ...string) {
+func (db *DB) SubscribeChannelDB(cb func(string, ...string), channels ...string) {
 	if db.sCbMap.Count() == 0 {
 		for _, v := range channels {
 			db.sCbMap.Add(v, cb)
 		}
 
 		go func(sCbMap *sharedCbMap,
-			channelPrefix,
-			eventSeparator string,
 			ch intChannels,
 			channels ...string) {
 			sub := db.subscribe(db.ctx, db.client, channels...)
@@ -319,7 +320,8 @@ func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, even
 				case msg := <-rxChannel:
 					cb, ok := lCbMap[msg.Channel]
 					if ok {
-						cb(strings.TrimPrefix(msg.Channel, channelPrefix), strings.Split(msg.Payload, eventSeparator)...)
+						nSChNames := strings.SplitAfterN(msg.Channel, NsSeparator, 2)
+						cb(nSChNames[1], strings.Split(msg.Payload, EventSeparator)...)
 					}
 				case channel := <-ch.addChannel:
 					lCbMap = sCbMap.GetMapCopy()
@@ -336,7 +338,7 @@ func (db *DB) SubscribeChannelDB(cb func(string, ...string), channelPrefix, even
 					}
 				}
 			}
-		}(db.sCbMap, channelPrefix, eventSeparator, db.ch, channels...)
+		}(db.sCbMap, db.ch, channels...)
 
 	} else {
 		for _, v := range channels {
