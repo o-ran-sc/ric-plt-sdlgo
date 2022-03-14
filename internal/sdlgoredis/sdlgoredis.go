@@ -1,6 +1,6 @@
 /*
    Copyright (c) 2019 AT&T Intellectual Property.
-   Copyright (c) 2018-2019 Nokia.
+   Copyright (c) 2018-2022 Nokia.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -56,12 +56,12 @@ type sharedCbMap struct {
 }
 
 type Config struct {
-	hostname        string
-	port            string
-	masterName      string
-	sentinelPort    string
-	clusterAddrList string
-	nodeCnt         string
+	hostname      string
+	ports         []string
+	masterNames   []string
+	sentinelPorts []string
+	clusterAddrs  []string
+	nodeCnt       string
 }
 
 type DB struct {
@@ -72,8 +72,11 @@ type DB struct {
 	redisModules bool
 	sCbMap       *sharedCbMap
 	ch           intChannels
-	cfg          Config
 	addr         string
+	port         string
+	sentinelPort string
+	masterName   string
+	nodeCnt      string
 }
 
 type Subscriber interface {
@@ -154,7 +157,8 @@ func subscribeNotifications(ctx context.Context, client RedisClient, channels ..
 	return client.Subscribe(ctx, channels...)
 }
 
-func CreateDB(client RedisClient, subscribe SubscribeFn, sentinelCreateCb RedisSentinelCreateCb, cfg Config, sentinelAddr string) *DB {
+func CreateDB(client RedisClient, subscribe SubscribeFn, sentinelCreateCb RedisSentinelCreateCb,
+	addr, port, sentinelPort, masterName, nodeCnt string) *DB {
 	db := DB{
 		ctx:          context.Background(),
 		client:       client,
@@ -167,8 +171,11 @@ func CreateDB(client RedisClient, subscribe SubscribeFn, sentinelCreateCb RedisS
 			removeChannel: make(chan string),
 			exit:          make(chan bool),
 		},
-		cfg:  cfg,
-		addr: sentinelAddr,
+		addr:         addr,
+		sentinelPort: sentinelPort,
+		port:         port,
+		masterName:   masterName,
+		nodeCnt:      nodeCnt,
 	}
 
 	return &db
@@ -181,13 +188,23 @@ func Create() []*DB {
 
 func readConfig(osI OS) Config {
 	cfg := Config{
-		hostname:        osI.Getenv("DBAAS_SERVICE_HOST", "localhost"),
-		port:            osI.Getenv("DBAAS_SERVICE_PORT", "6379"),
-		masterName:      osI.Getenv("DBAAS_MASTER_NAME", ""),
-		sentinelPort:    osI.Getenv("DBAAS_SERVICE_SENTINEL_PORT", ""),
-		clusterAddrList: osI.Getenv("DBAAS_CLUSTER_ADDR_LIST", ""),
-		nodeCnt:         osI.Getenv("DBAAS_NODE_COUNT", "1"),
+		hostname: osI.Getenv("DBAAS_SERVICE_HOST", "localhost"),
+		ports:    strings.Split(osI.Getenv("DBAAS_SERVICE_PORT", "6379"), ","),
+		nodeCnt:  osI.Getenv("DBAAS_NODE_COUNT", "1"),
 	}
+
+	if addrStr := osI.Getenv("DBAAS_CLUSTER_ADDR_LIST", ""); addrStr != "" {
+		cfg.clusterAddrs = strings.Split(addrStr, ",")
+	} else if cfg.hostname != "" {
+		cfg.clusterAddrs = append(cfg.clusterAddrs, cfg.hostname)
+	}
+	if sntPortStr := osI.Getenv("DBAAS_SERVICE_SENTINEL_PORT", ""); sntPortStr != "" {
+		cfg.sentinelPorts = strings.Split(sntPortStr, ",")
+	}
+	if nameStr := osI.Getenv("DBAAS_MASTER_NAME", ""); nameStr != "" {
+		cfg.masterNames = strings.Split(nameStr, ",")
+	}
+	completeConfig(&cfg)
 	return cfg
 }
 
@@ -205,47 +222,61 @@ func (osImpl) Getenv(key string, defValue string) string {
 	return val
 }
 
+func completeConfig(cfg *Config) {
+	if len(cfg.sentinelPorts) == 0 {
+		if len(cfg.clusterAddrs) > len(cfg.ports) && len(cfg.ports) > 0 {
+			for i := len(cfg.ports); i < len(cfg.clusterAddrs); i++ {
+				cfg.ports = append(cfg.ports, cfg.ports[i-1])
+			}
+		}
+	} else {
+		if len(cfg.clusterAddrs) > len(cfg.sentinelPorts) {
+			for i := len(cfg.sentinelPorts); i < len(cfg.clusterAddrs); i++ {
+				cfg.sentinelPorts = append(cfg.sentinelPorts, cfg.sentinelPorts[i-1])
+			}
+		}
+		if len(cfg.clusterAddrs) > len(cfg.masterNames) && len(cfg.masterNames) > 0 {
+			for i := len(cfg.masterNames); i < len(cfg.clusterAddrs); i++ {
+				cfg.masterNames = append(cfg.masterNames, cfg.masterNames[i-1])
+			}
+		}
+	}
+}
+
 func ReadConfigAndCreateDbClients(osI OS, clientCreator RedisClientCreator,
 	subscribe SubscribeFn,
 	sentinelCreateCb RedisSentinelCreateCb) []*DB {
-	cfg := readConfig(osI)
-	return createDbClients(cfg, clientCreator, subscribe, sentinelCreateCb)
-}
-
-func createDbClients(cfg Config, clientCreator RedisClientCreator,
-	subscribe SubscribeFn,
-	sentinelCreateCb RedisSentinelCreateCb) []*DB {
-	if cfg.clusterAddrList == "" {
-		return []*DB{createLegacyDbClient(cfg, clientCreator, subscribe, sentinelCreateCb)}
-	}
-
 	dbs := []*DB{}
-
-	addrList := strings.Split(cfg.clusterAddrList, ",")
-	for _, addr := range addrList {
-		db := createDbClient(cfg, addr, clientCreator, subscribe, sentinelCreateCb)
+	cfg := readConfig(osI)
+	for i, addr := range cfg.clusterAddrs {
+		port := getListItem(cfg.ports, i)
+		sntPort := getListItem(cfg.sentinelPorts, i)
+		name := getListItem(cfg.masterNames, i)
+		db := createDbClient(addr, port, sntPort, name, cfg.nodeCnt,
+			clientCreator, subscribe, sentinelCreateCb)
 		dbs = append(dbs, db)
 	}
 	return dbs
 }
 
-func createLegacyDbClient(cfg Config, clientCreator RedisClientCreator,
-	subscribe SubscribeFn,
-	sentinelCreateCb RedisSentinelCreateCb) *DB {
-	return createDbClient(cfg, cfg.hostname, clientCreator, subscribe, sentinelCreateCb)
+func getListItem(list []string, index int) string {
+	if index < len(list) {
+		return list[index]
+	}
+	return ""
 }
 
-func createDbClient(cfg Config, hostName string, clientCreator RedisClientCreator,
+func createDbClient(addr, port, sentinelPort, masterName, nodeCnt string, clientCreator RedisClientCreator,
 	subscribe SubscribeFn,
 	sentinelCreateCb RedisSentinelCreateCb) *DB {
 	var client RedisClient
 	var db *DB
-	if cfg.sentinelPort == "" {
-		client = clientCreator(hostName, cfg.port, "", false)
-		db = CreateDB(client, subscribe, nil, cfg, hostName)
+	if sentinelPort == "" {
+		client = clientCreator(addr, port, "", false)
+		db = CreateDB(client, subscribe, nil, addr, port, sentinelPort, masterName, nodeCnt)
 	} else {
-		client = clientCreator(hostName, cfg.sentinelPort, cfg.masterName, true)
-		db = CreateDB(client, subscribe, sentinelCreateCb, cfg, hostName)
+		client = clientCreator(addr, sentinelPort, masterName, true)
+		db = CreateDB(client, subscribe, sentinelCreateCb, addr, port, sentinelPort, masterName, nodeCnt)
 	}
 	db.CheckCommands()
 	return db
@@ -765,14 +796,14 @@ func readRedisInfoReplyFields(input []string, info *DbInfo) {
 
 func (db *DB) State() (*DbState, error) {
 	dbState := new(DbState)
-	if db.cfg.sentinelPort != "" {
+	if db.sentinelPort != "" {
 		//Establish connection to Redis sentinel. The reason why connection is done
 		//here instead of time of the SDL instance creation is that for the time being
 		//sentinel connection is needed only here to get state information and
 		//state information is needed only by 'sdlcli' hence it is not time critical
 		//and also we want to avoid opening unnecessary TCP connections towards Redis
 		//sentinel for every SDL instance. Now it is done only when 'sdlcli' is used.
-		sentinelClient := db.sentinel(&db.cfg, db.addr)
+		sentinelClient := db.sentinel(db.addr, db.sentinelPort, db.masterName, db.nodeCnt)
 		return sentinelClient.GetDbState()
 	} else {
 		info, err := db.Info()
@@ -791,17 +822,17 @@ func (db *DB) fillDbStateFromDbInfo(info *DbInfo) (*DbState, error) {
 			PrimaryDbState: PrimaryDbState{
 				Fields: PrimaryDbStateFields{
 					Role:  "master",
-					Ip:    db.cfg.hostname,
-					Port:  db.cfg.port,
+					Ip:    db.addr,
+					Port:  db.port,
 					Flags: "master",
 				},
 			},
 		}
 	}
 
-	cnt, err := strconv.Atoi(db.cfg.nodeCnt)
+	cnt, err := strconv.Atoi(db.nodeCnt)
 	if err != nil {
-		dbState.Err = fmt.Errorf("DBAAS_NODE_COUNT configuration value '%s' conversion to integer failed", db.cfg.nodeCnt)
+		dbState.Err = fmt.Errorf("DBAAS_NODE_COUNT configuration value '%s' conversion to integer failed", db.nodeCnt)
 	} else {
 		dbState.ConfigNodeCnt = cnt
 	}
@@ -810,10 +841,8 @@ func (db *DB) fillDbStateFromDbInfo(info *DbInfo) (*DbState, error) {
 }
 
 func createReplicaDbClient(host string) *DB {
-	cfg := readConfig(osImpl{})
-	cfg.sentinelPort = ""
-	cfg.clusterAddrList, cfg.port, _ = net.SplitHostPort(host)
-	return createDbClient(cfg, cfg.clusterAddrList, newRedisClient, subscribeNotifications, nil)
+	addr, port, _ := net.SplitHostPort(host)
+	return createDbClient(addr, port, "", "", "", newRedisClient, subscribeNotifications, nil)
 }
 
 func getStatisticsInfo(db *DB, host string) (*DbStatisticsInfo, error) {
@@ -861,14 +890,14 @@ func sentinelStatistics(db *DB) (*DbStatistics, error) {
 func standaloneStatistics(db *DB) (*DbStatistics, error) {
 	dbStatistics := new(DbStatistics)
 
-	dbStatisticsInfo, err := getStatisticsInfo(db, net.JoinHostPort(db.cfg.hostname, db.cfg.port))
+	dbStatisticsInfo, err := getStatisticsInfo(db, net.JoinHostPort(db.addr, db.port))
 	dbStatistics.Stats = append(dbStatistics.Stats, dbStatisticsInfo)
 
 	return dbStatistics, err
 }
 
 func (db *DB) Statistics() (*DbStatistics, error) {
-	if db.cfg.sentinelPort != "" {
+	if db.sentinelPort != "" {
 		return sentinelStatistics(db)
 	}
 
