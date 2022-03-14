@@ -1,6 +1,6 @@
 /*
    Copyright (c) 2019 AT&T Intellectual Property.
-   Copyright (c) 2018-2019 Nokia.
+   Copyright (c) 2018-2022 Nokia.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -189,9 +189,9 @@ func setupHaEnvWithSentinels(commandsExists bool, nodeCnt string) (*pubSubMock, 
 	setupVals := setupEnv(
 		commandsExists,
 		"service-ricplt-dbaas-tcp-cluster-0.ricplt",
-		"6376",
-		"dbaasmaster",
-		"26376",
+		"6379",
+		"dbaasmaster-cluster-0",
+		"26379",
 		"",
 		nodeCnt,
 	)
@@ -202,7 +202,7 @@ func setupSingleEnv(commandsExists bool, nodeCnt string) (*pubSubMock, *clientMo
 	setupVals := setupEnv(
 		commandsExists,
 		"service-ricplt-dbaas-tcp-cluster-0.ricplt",
-		"6376", "", "", "", nodeCnt,
+		"6379", "", "", "", nodeCnt,
 	)
 	return setupVals.pubSubMock[0], setupVals.rClient[0], setupVals.db[0]
 }
@@ -251,10 +251,11 @@ func setupEnv(commandsExists bool, host, port, msname, sntport, clsaddrlist, nod
 			return clm
 		},
 		subscribeNotifications,
-		func(cfg *sdlgoredis.Config, addr string) *sdlgoredis.Sentinel {
+		func(addr, sentinelPort, masterName, nodeCnt string) *sdlgoredis.Sentinel {
 			s := &sdlgoredis.Sentinel{
 				IredisSentinelClient: smock,
-				Cfg:                  cfg,
+				MasterName:           masterName,
+				NodeCnt:              nodeCnt,
 			}
 			return s
 		},
@@ -1139,7 +1140,7 @@ func TestPExpireIELockNotHeld(t *testing.T) {
 func TestClientStandaloneRedisLegacyEnv(t *testing.T) {
 	setupVals := setupEnv(
 		true,
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "", "", "", "",
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6379", "", "", "", "",
 	)
 	assert.Equal(t, 1, len(setupVals.rClient))
 	assert.Equal(t, 1, len(setupVals.db))
@@ -1154,7 +1155,7 @@ func TestClientStandaloneRedisLegacyEnv(t *testing.T) {
 func TestClientSentinelRedisLegacyEnv(t *testing.T) {
 	setupVals := setupEnv(
 		true,
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "dbaasmaster", "26376", "", "3",
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6379", "dbaasmaster-cluster-0", "26379", "", "3",
 	)
 	assert.Equal(t, 1, len(setupVals.rClient))
 	assert.Equal(t, 1, len(setupVals.db))
@@ -1169,7 +1170,7 @@ func TestClientSentinelRedisLegacyEnv(t *testing.T) {
 func TestClientTwoStandaloneRedisEnvs(t *testing.T) {
 	setupVals := setupEnv(
 		true,
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "", "",
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6379,6380", "", "",
 		"service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "",
 	)
 	assert.Equal(t, 2, len(setupVals.rClient))
@@ -1192,8 +1193,8 @@ func TestClientTwoStandaloneRedisEnvs(t *testing.T) {
 func TestClientTwoSentinelRedisEnvs(t *testing.T) {
 	setupVals := setupEnv(
 		true,
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6376", "dbaasmaster", "26376",
-		"service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "3",
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6379,6380", "dbaasmaster-cluster-0,dbaasmaster-cluster-1",
+		"26379,26380", "service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "3",
 	)
 	assert.Equal(t, 2, len(setupVals.rClient))
 	assert.Equal(t, 2, len(setupVals.db))
@@ -1210,6 +1211,36 @@ func TestClientTwoSentinelRedisEnvs(t *testing.T) {
 	assert.Nil(t, err)
 	setupVals.rClient[0].AssertExpectations(t)
 	setupVals.rClient[1].AssertExpectations(t)
+}
+
+func TestCompleteConfigIfLessPortsThanAddresses(t *testing.T) {
+	setupVals := setupEnv(
+		true,
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6379", "dbaasmaster-cluster-0,dbaasmaster-cluster-1",
+		"", "service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "3",
+	)
+	assert.Equal(t, 2, len(setupVals.rClient))
+	assert.Equal(t, 2, len(setupVals.db))
+}
+
+func TestCompleteConfigIfLessSentinelPortsThanAddresses(t *testing.T) {
+	setupVals := setupEnv(
+		true,
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6379,6380", "dbaasmaster-cluster-0,dbaasmaster-cluster-1",
+		"26379", "service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "3",
+	)
+	assert.Equal(t, 2, len(setupVals.rClient))
+	assert.Equal(t, 2, len(setupVals.db))
+}
+
+func TestCompleteConfigIfLessSentinelNamesThanAddresses(t *testing.T) {
+	setupVals := setupEnv(
+		true,
+		"service-ricplt-dbaas-tcp-cluster-0.ricplt", "6379,6380", "dbaasmaster-cluster-0",
+		"26379,26380", "service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "3",
+	)
+	assert.Equal(t, 2, len(setupVals.rClient))
+	assert.Equal(t, 2, len(setupVals.db))
 }
 
 func TestInfoOfPrimaryRedisWithTwoReplicasSuccessfully(t *testing.T) {
@@ -1407,13 +1438,71 @@ func TestStateWithPrimaryAndTwoReplicaRedisSuccessfully(t *testing.T) {
 	expState.addSentinel("10.20.30.40", "26379", "sentinel", nil)
 	expState.addSentinel("10.20.30.50", "30001", "sentinel", nil)
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
-	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
+	s[0].On("Master", "dbaasmaster-cluster-0").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
+	s[0].On("Sentinels", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
 	ret, err := db.State()
 	assert.Nil(t, err)
 	assert.Equal(t, expState.s, *ret)
 	r.AssertExpectations(t)
+}
+
+func TestStateWithTwoSdlClustersContainingPrimaryAndTwoReplicaRedisSuccessfully(t *testing.T) {
+	setupVals := setupEnv(
+		true,
+		"", "6379,6380", "dbaasmaster-cluster-0,dbaasmaster-cluster-1",
+		"26379,26380", "service-ricplt-dbaas-tcp-cluster-0.ricplt,service-ricplt-dbaas-tcp-cluster-1.ricplt", "3",
+	)
+	r := setupVals.rClient
+	s := setupVals.rSentinel
+	db := setupVals.db
+
+	FstRedisPrimaryState := newMockRedisMasterCallResp("master", "10.20.30.30", "6379", "master")
+	FstRedisReplicasState := newMockRedisSlavesCall()
+	FstRedisReplicasState.add("slave", "10.20.30.40", "6379", "up", "slave")
+	FstRedisReplicasState.add("slave", "10.20.30.50", "6379", "up", "slave")
+	FstRedisSentinelsState := newMockRedisSentinelsCall()
+	FstRedisSentinelsState.add("10.20.30.40", "26379", "sentinel")
+	FstRedisSentinelsState.add("10.20.30.50", "26379", "sentinel")
+
+	SndRedisPrimaryState := newMockRedisMasterCallResp("master", "10.20.30.60", "6380", "master")
+	SndRedisReplicasState := newMockRedisSlavesCall()
+	SndRedisReplicasState.add("slave", "10.20.30.70", "6380", "up", "slave")
+	SndRedisReplicasState.add("slave", "10.20.30.80", "6380", "up", "slave")
+	SndRedisSentinelsState := newMockRedisSentinelsCall()
+	SndRedisSentinelsState.add("10.20.30.70", "26380", "sentinel")
+	SndRedisSentinelsState.add("10.20.30.80", "26380", "sentinel")
+
+	FstExpState := newExpDbState(3, nil)
+	FstExpState.addPrimary("master", "10.20.30.30", "6379", "master", nil)
+	FstExpState.addReplica("slave", "10.20.30.40", "6379", "up", "slave", nil)
+	FstExpState.addReplica("slave", "10.20.30.50", "6379", "up", "slave", nil)
+	FstExpState.addSentinel("10.20.30.40", "26379", "sentinel", nil)
+	FstExpState.addSentinel("10.20.30.50", "26379", "sentinel", nil)
+
+	SndExpState := newExpDbState(3, nil)
+	SndExpState.addPrimary("master", "10.20.30.60", "6380", "master", nil)
+	SndExpState.addReplica("slave", "10.20.30.70", "6380", "up", "slave", nil)
+	SndExpState.addReplica("slave", "10.20.30.80", "6380", "up", "slave", nil)
+	SndExpState.addSentinel("10.20.30.70", "26380", "sentinel", nil)
+	SndExpState.addSentinel("10.20.30.80", "26380", "sentinel", nil)
+
+	s[0].On("Master", "dbaasmaster-cluster-0").Return(redis.NewStringStringMapResult(FstRedisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(FstRedisReplicasState.resp, nil))
+	s[0].On("Sentinels", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(FstRedisSentinelsState.resp, nil))
+
+	s[0].On("Master", "dbaasmaster-cluster-1").Return(redis.NewStringStringMapResult(SndRedisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster-cluster-1").Return(redis.NewSliceResult(SndRedisReplicasState.resp, nil))
+	s[0].On("Sentinels", "dbaasmaster-cluster-1").Return(redis.NewSliceResult(SndRedisSentinelsState.resp, nil))
+
+	ret, err := db[0].State()
+	assert.Nil(t, err)
+	assert.Equal(t, FstExpState.s, *ret)
+
+	ret, err = db[1].State()
+	assert.Nil(t, err)
+	assert.Equal(t, SndExpState.s, *ret)
+	r[0].AssertExpectations(t)
 }
 
 func TestStateWithPrimaryAndTwoReplicaRedisFailureInPrimaryRedisCall(t *testing.T) {
@@ -1435,9 +1524,9 @@ func TestStateWithPrimaryAndTwoReplicaRedisFailureInPrimaryRedisCall(t *testing.
 	expState.addSentinel("10.20.30.40", "26379", "sentinel", nil)
 	expState.addSentinel("10.20.30.50", "30001", "sentinel", nil)
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, expErr))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
-	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
+	s[0].On("Master", "dbaasmaster-cluster-0").Return(redis.NewStringStringMapResult(redisPrimaryState, expErr))
+	s[0].On("Slaves", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
+	s[0].On("Sentinels", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
 	ret, err := db.State()
 	assert.NotNil(t, err)
 	assert.Equal(t, expState.s, *ret)
@@ -1463,9 +1552,9 @@ func TestStateWithPrimaryAndTwoReplicaRedisFailureInReplicasRedisCall(t *testing
 	expState.addSentinel("10.20.30.40", "26379", "sentinel", nil)
 	expState.addSentinel("10.20.30.50", "30001", "sentinel", nil)
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState.resp, errors.New("Some error")))
-	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
+	s[0].On("Master", "dbaasmaster-cluster-0").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisReplicasState.resp, errors.New("Some error")))
+	s[0].On("Sentinels", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
 	ret, err := db.State()
 	assert.NotNil(t, err)
 	assert.Equal(t, expState.s, *ret)
@@ -1487,9 +1576,9 @@ func TestStateWithPrimaryAndOneReplicaRedisFailureInSentinelsRedisCall(t *testin
 	expState.addReplica("slave", "10.20.30.40", "6379", "up", "slave", nil)
 	expState.addSentinel("", "", "", expErr)
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
-	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState.resp, expErr))
+	s[0].On("Master", "dbaasmaster-cluster-0").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
+	s[0].On("Sentinels", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisSentinelsState.resp, expErr))
 	ret, err := db.State()
 	assert.NotNil(t, err)
 	assert.Equal(t, expState.s, *ret)
@@ -1515,9 +1604,9 @@ func TestStateWithPrimaryAndTwoReplicaRedisFailureWhenIntConversionFails(t *test
 	expState.addSentinel("10.20.30.40", "26379", "sentinel", nil)
 	expState.addSentinel("10.20.30.50", "30001", "sentinel", nil)
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
-	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
+	s[0].On("Master", "dbaasmaster-cluster-0").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
+	s[0].On("Sentinels", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
 	ret, err := db.State()
 	assert.Equal(t, expErr, err)
 	assert.Equal(t, expState.s, *ret)
@@ -1543,9 +1632,9 @@ func TestStateWithPrimaryAndTwoReplicaFirstSentinelStateIgnoredBecauseZeroPortBu
 	expState.addReplica("slave", "10.20.30.50", "30000", "up", "slave", nil)
 	expState.addSentinel("10.20.30.50", "26379", "sentinel", nil)
 
-	s[0].On("Master", "dbaasmaster").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
-	s[0].On("Slaves", "dbaasmaster").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
-	s[0].On("Sentinels", "dbaasmaster").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
+	s[0].On("Master", "dbaasmaster-cluster-0").Return(redis.NewStringStringMapResult(redisPrimaryState, nil))
+	s[0].On("Slaves", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisReplicasState.resp, nil))
+	s[0].On("Sentinels", "dbaasmaster-cluster-0").Return(redis.NewSliceResult(redisSentinelsState.resp, nil))
 	ret, err := db.State()
 	assert.Nil(t, err)
 	assert.Equal(t, expState.s, *ret)
@@ -1565,7 +1654,7 @@ func TestStateWithSinglePrimaryRedisSuccessfully(t *testing.T) {
 			Fields: sdlgoredis.PrimaryDbStateFields{
 				Role:  "master",
 				Ip:    "service-ricplt-dbaas-tcp-cluster-0.ricplt",
-				Port:  "6376",
+				Port:  "6379",
 				Flags: "master",
 			},
 		},
@@ -1593,7 +1682,7 @@ func TestStateWithSinglePrimaryRedisFailureWhenIntConversionFails(t *testing.T) 
 			Fields: sdlgoredis.PrimaryDbStateFields{
 				Role:  "master",
 				Ip:    "service-ricplt-dbaas-tcp-cluster-0.ricplt",
-				Port:  "6376",
+				Port:  "6379",
 				Flags: "master",
 			},
 		},
@@ -1636,7 +1725,7 @@ func TestStatisticsWithSinglePrimaryRedisSuccessfully(t *testing.T) {
 		Stats: []*sdlgoredis.DbStatisticsInfo{
 			{
 				IPAddr: "service-ricplt-dbaas-tcp-cluster-0.ricplt",
-				Port:   "6376",
+				Port:   "6379",
 				Info: &sdlgoredis.DbInfo{
 					Fields: sdlgoredis.DbInfoFields{
 						PrimaryRole: true,

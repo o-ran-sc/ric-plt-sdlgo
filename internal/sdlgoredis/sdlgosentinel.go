@@ -1,6 +1,6 @@
 /*
    Copyright (c) 2021 AT&T Intellectual Property.
-   Copyright (c) 2018-2021 Nokia.
+   Copyright (c) 2018-2022 Nokia.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -30,9 +30,10 @@ import (
 )
 
 type Sentinel struct {
-	ctx context.Context
+	ctx        context.Context
+	MasterName string
+	NodeCnt    string
 	IredisSentinelClient
-	Cfg *Config
 }
 
 type IredisSentinelClient interface {
@@ -41,10 +42,10 @@ type IredisSentinelClient interface {
 	Sentinels(ctx context.Context, name string) *redis.SliceCmd
 }
 
-type RedisSentinelCreateCb func(cfg *Config, addr string) *Sentinel
+type RedisSentinelCreateCb func(addr, sentinelPort, masterName, nodeCnt string) *Sentinel
 
-func newRedisSentinel(cfg *Config, addr string) *Sentinel {
-	redisAddress := addr + ":" + cfg.sentinelPort
+func newRedisSentinel(addr, sentinelPort, masterName, nodeCnt string) *Sentinel {
+	redisAddress := addr + ":" + sentinelPort
 	return &Sentinel{
 		ctx: context.Background(),
 		IredisSentinelClient: redis.NewSentinelClient(&redis.Options{
@@ -54,7 +55,8 @@ func newRedisSentinel(cfg *Config, addr string) *Sentinel {
 			PoolSize:   20,
 			MaxRetries: 2,
 		}),
-		Cfg: cfg,
+		MasterName: masterName,
+		NodeCnt:    nodeCnt,
 	}
 }
 
@@ -67,9 +69,9 @@ func (s *Sentinel) GetDbState() (*DbState, error) {
 	state.ReplicasDbState = rState
 	state.SentinelsDbState = sState
 
-	cnt, err := strconv.Atoi(s.Cfg.nodeCnt)
+	cnt, err := strconv.Atoi(s.NodeCnt)
 	if err != nil {
-		state.Err = fmt.Errorf("Sentinel DBAAS_NODE_COUNT configuration value '%s' conversion to integer failed", s.Cfg.nodeCnt)
+		state.Err = fmt.Errorf("Sentinel DBAAS_NODE_COUNT configuration value '%s' conversion to integer failed", s.NodeCnt)
 		return state, state.Err
 	}
 	state.ConfigNodeCnt = cnt
@@ -85,7 +87,7 @@ func (s *Sentinel) GetDbState() (*DbState, error) {
 
 func (s *Sentinel) getPrimaryDbState() (*PrimaryDbState, error) {
 	state := new(PrimaryDbState)
-	redisVal, redisErr := s.Master(s.ctx, s.Cfg.masterName).Result()
+	redisVal, redisErr := s.Master(s.ctx, s.MasterName).Result()
 	if redisErr == nil {
 		state.Fields.Ip = redisVal["ip"]
 		state.Fields.Port = redisVal["port"]
@@ -100,7 +102,7 @@ func (s *Sentinel) getReplicasState() (*ReplicasDbState, error) {
 	states := new(ReplicasDbState)
 	states.States = make([]*ReplicaDbState, 0)
 
-	redisVal, redisErr := s.Slaves(s.ctx, s.Cfg.masterName).Result()
+	redisVal, redisErr := s.Slaves(s.ctx, s.MasterName).Result()
 	if redisErr == nil {
 		for _, redisReplica := range redisVal {
 			replicaState := readReplicaState(redisReplica.([]interface{}))
@@ -133,7 +135,7 @@ func (s *Sentinel) getSentinelsState() (*SentinelsDbState, error) {
 	states := new(SentinelsDbState)
 	states.States = make([]*SentinelDbState, 0)
 
-	redisVal, redisErr := s.Sentinels(s.ctx, s.Cfg.masterName).Result()
+	redisVal, redisErr := s.Sentinels(s.ctx, s.MasterName).Result()
 	if redisErr == nil {
 		for _, redisSentinel := range redisVal {
 			sentinelState := readSentinelState(redisSentinel.([]interface{}))

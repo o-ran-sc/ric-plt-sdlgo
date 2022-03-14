@@ -30,6 +30,10 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.10.0] - 2022-03-14
+
+* Enable redis/sentinel port and sentinel master name configuration
+
 [0.9.6] - 2022-02-07
 
 * Fix multi-namespace SDL event subscribe
