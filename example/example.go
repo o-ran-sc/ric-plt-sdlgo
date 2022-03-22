@@ -26,7 +26,6 @@ import (
 	"fmt"
 
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo"
-	"time"
 )
 
 var sdl *sdlgo.SyncStorage
@@ -60,28 +59,8 @@ func exampleClose() {
 	sdl.Close()
 }
 
-func sdlNotify(ch string, events ...string) {
-	fmt.Printf("CB1 channel=%+v, events=%+v\n", ch, events[0])
-}
-
-func sdlNotify2(ch string, events ...string) {
-	fmt.Printf("CB2 channel=%+v, events=%+v\n", ch, events[0])
-}
-
 func main() {
-	sdl.SubscribeChannel("dcapterm_subsRTPM-localhost:55566", sdlNotify, "my-ch")
-	sdl.SubscribeChannel("dcapterm_subsRTPM-localhost:55565", sdlNotify2, "my-ch")
-	time.Sleep(3 * time.Second)
-	sdl.SetAndPublish("dcapterm_subsRTPM-localhost:55566", []string{"my-ch", "my-event1"}, "my-key", "my-data")
-	sdl.SetAndPublish("dcapterm_subsRTPM-localhost:55565", []string{"my-ch", "my-event2"}, "my-key", "my-data")
-
-	time.Sleep(2 * time.Second)
-	//sdl.UnsubscribeChannel("dcapterm_subsRTPM-localhost:55565", "my-ch")
-	//time.Sleep(2 * time.Second)
-	//sdl.SetAndPublish("dcapterm_subsRTPM-localhost:55565", []string{"my-ch", "my-event2"}, "my-key", "my-data")
-	time.Sleep(2 * time.Second)
-
-	//exampleSet()
-	//exampleGet()
-	//exampleClose()
+	exampleSet()
+	exampleGet()
+	exampleClose()
 }
