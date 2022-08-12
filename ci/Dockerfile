@@ -23,7 +23,7 @@
 # This is a Dockerfile for code verification only.
 # Not to be pushed or used for anything else.
 #
-FROM golang:1.16
+FROM golang:1.18
 
 RUN mkdir -p $GOPATH/src/sdlgo
 COPY . $GOPATH/src/sdlgo
