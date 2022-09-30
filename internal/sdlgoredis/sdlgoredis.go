@@ -886,7 +886,9 @@ func sentinelStatistics(db *DB) (*DbStatistics, error) {
 		for _, r := range dbState.ReplicasDbState.States {
 			replicaDb := createReplicaDbClient(r.GetAddress())
 			dbStatisticsInfo, err = getStatisticsInfo(replicaDb, r.GetAddress())
-			replicaDb.CloseDB()
+			if closeErr := replicaDb.CloseDB(); closeErr != nil {
+				return nil, closeErr
+			}
 			if err != nil {
 				return nil, err
 			}
