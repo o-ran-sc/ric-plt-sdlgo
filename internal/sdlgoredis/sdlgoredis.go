@@ -850,14 +850,21 @@ func (db *DB) fillDbStateFromDbInfo(info *DbInfo) (*DbState, error) {
 	return &dbState, dbState.Err
 }
 
-func createReplicaDbClient(host string) *DB {
-	addr, port, _ := net.SplitHostPort(host)
-	return createDbClient(addr, port, "", "", "", newRedisClient, subscribeNotifications, nil)
+func createReplicaDbClient(host string) (*DB, error) {
+	addr, port, err := net.SplitHostPort(host)
+	if err != nil {
+		return nil, err
+	}
+	return createDbClient(addr, port, "", "", "", newRedisClient, subscribeNotifications, nil), err
 }
 
 func getStatisticsInfo(db *DB, host string) (*DbStatisticsInfo, error) {
+	var err error
 	dbStatisticsInfo := new(DbStatisticsInfo)
-	dbStatisticsInfo.IPAddr, dbStatisticsInfo.Port, _ = net.SplitHostPort(host)
+	dbStatisticsInfo.IPAddr, dbStatisticsInfo.Port, err = net.SplitHostPort(host)
+	if err != nil {
+		return nil, err
+	}
 
 	info, err := db.Info()
 	if err != nil {
@@ -884,7 +891,10 @@ func sentinelStatistics(db *DB) (*DbStatistics, error) {
 
 	if dbState.ReplicasDbState != nil {
 		for _, r := range dbState.ReplicasDbState.States {
-			replicaDb := createReplicaDbClient(r.GetAddress())
+			replicaDb, err := createReplicaDbClient(r.GetAddress())
+			if err != nil {
+				return nil, err
+			}
 			dbStatisticsInfo, err = getStatisticsInfo(replicaDb, r.GetAddress())
 			if closeErr := replicaDb.CloseDB(); closeErr != nil {
 				return nil, closeErr
