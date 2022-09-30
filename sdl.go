@@ -93,8 +93,7 @@ func NewSdlInstance(NameSpace string, db *Database) *SdlInstance {
 //Deprecated: Will be removed in a future release, please use the SubscribeChannel
 //receiver function of the SyncStorage type.
 func (s *SdlInstance) SubscribeChannel(cb func(string, ...string), channels ...string) error {
-	s.storage.SubscribeChannel(s.nameSpace, cb, channels...)
-	return nil
+	return s.storage.SubscribeChannel(s.nameSpace, cb, channels...)
 }
 
 //UnsubscribeChannel removes subscription from one or several channels.

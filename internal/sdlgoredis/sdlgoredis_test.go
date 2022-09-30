@@ -906,19 +906,53 @@ func TestSubscribeChannelDBSubscribeRXUnsubscribe(t *testing.T) {
 		Payload: "event",
 	}
 	ps.On("Channel").Return(ch)
+	ps.On("Subscribe").Return(nil)
 	ps.On("Unsubscribe").Return(nil)
 	ps.On("Close").Return(nil)
 	count := 0
 	receivedChannel := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string) {
+	err := db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel = channel
 	}, "{prefix},channel")
+	assert.Nil(t, err)
 	ch <- &msg
-	db.UnsubscribeChannelDB("{prefix},channel")
+	err = db.UnsubscribeChannelDB("{prefix},channel")
+	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 1, count)
 	assert.Equal(t, "channel", receivedChannel)
+	r.AssertExpectations(t)
+	ps.AssertExpectations(t)
+}
+
+func TestSubscribeChannelDBFailure(t *testing.T) {
+	mockedErr := errors.New("Some DB Backend Subscribe Error")
+	ps, r, db := setupHaEnv(true)
+	ch := make(chan *redis.Message)
+	ps.On("Channel").Return(ch)
+	ps.On("Subscribe").Return(mockedErr)
+	err := db.SubscribeChannelDB(func(channel string, payload ...string) {
+	}, "{prefix},channel")
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), mockedErr.Error())
+	r.AssertExpectations(t)
+	ps.AssertExpectations(t)
+}
+
+func TestUnsubscribeChannelDBFailure(t *testing.T) {
+	mockedErr := errors.New("Some DB Backend Unsubscribe Error")
+	ps, r, db := setupHaEnv(true)
+	ch := make(chan *redis.Message)
+	ps.On("Channel").Return(ch)
+	ps.On("Subscribe").Return(nil)
+	ps.On("Unsubscribe").Return(mockedErr)
+	err := db.SubscribeChannelDB(func(channel string, payload ...string) {
+	}, "{prefix},channel")
+	assert.Nil(t, err)
+	err = db.UnsubscribeChannelDB("{prefix},channel")
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), mockedErr.Error())
 	r.AssertExpectations(t)
 	ps.AssertExpectations(t)
 }
@@ -943,21 +977,24 @@ func TestSubscribeChannelDBSubscribeTwoUnsubscribeOne(t *testing.T) {
 	ps.On("Close").Return(nil)
 	count := 0
 	receivedChannel1 := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string) {
+	err := db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel1 = channel
 	}, "{prefix},channel1")
+	assert.Nil(t, err)
 	ch <- &msg1
 	receivedChannel2 := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string) {
+	err = db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel2 = channel
 	}, "{prefix},channel2")
-
+	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
-	db.UnsubscribeChannelDB("{prefix},channel1")
+	err = db.UnsubscribeChannelDB("{prefix},channel1")
+	assert.Nil(t, err)
 	ch <- &msg2
-	db.UnsubscribeChannelDB("{prefix},channel2")
+	err = db.UnsubscribeChannelDB("{prefix},channel2")
+	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 2, count)
 	assert.Equal(t, "channel1", receivedChannel1)
@@ -986,21 +1023,24 @@ func TestSubscribeChannelDBTwoSubscribesWithUnequalPrefixAndUnsubscribes(t *test
 	ps.On("Close").Return(nil)
 	count := 0
 	receivedChannel1 := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string) {
+	err := db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel1 = channel
 	}, "{prefix1},channel")
+	assert.Nil(t, err)
 	ch <- &msg1
 	receivedChannel2 := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string) {
+	err = db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel2 = channel
 	}, "{prefix2},channel")
-
+	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
-	db.UnsubscribeChannelDB("{prefix1},channel")
+	err = db.UnsubscribeChannelDB("{prefix1},channel")
+	assert.Nil(t, err)
 	ch <- &msg2
-	db.UnsubscribeChannelDB("{prefix2},channel")
+	err = db.UnsubscribeChannelDB("{prefix2},channel")
+	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 2, count)
 	assert.Equal(t, "channel", receivedChannel1)
@@ -1018,25 +1058,30 @@ func TestSubscribeChannelReDBSubscribeAfterUnsubscribe(t *testing.T) {
 		Payload: "event",
 	}
 	ps.On("Channel").Return(ch)
+	ps.On("Subscribe").Return(nil)
 	ps.On("Unsubscribe").Return(nil)
 	ps.On("Close").Return(nil)
 	count := 0
 	receivedChannel := ""
 
-	db.SubscribeChannelDB(func(channel string, payload ...string) {
+	err := db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel = channel
 	}, "{prefix},channel")
+	assert.Nil(t, err)
 	ch <- &msg
-	db.UnsubscribeChannelDB("{prefix},channel")
+	err = db.UnsubscribeChannelDB("{prefix},channel")
+	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 
-	db.SubscribeChannelDB(func(channel string, payload ...string) {
+	err = db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel = channel
 	}, "{prefix}", "---", "{prefix},channel")
+	assert.Nil(t, err)
 	ch <- &msg
-	db.UnsubscribeChannelDB("{prefix},channel")
+	err = db.UnsubscribeChannelDB("{prefix},channel")
+	assert.Nil(t, err)
 
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 2, count)
@@ -1054,16 +1099,19 @@ func TestSubscribeChannelDBSubscribeReceivedEventIgnoredIfChannelNameIsUnknown(t
 		Payload: "event",
 	}
 	ps.On("Channel").Return(ch)
+	ps.On("Subscribe").Return(nil)
 	ps.On("Unsubscribe").Return(nil)
 	ps.On("Close").Return(nil)
 	count := 0
 	receivedChannel := ""
-	db.SubscribeChannelDB(func(channel string, payload ...string) {
+	err := db.SubscribeChannelDB(func(channel string, payload ...string) {
 		count++
 		receivedChannel = channel
 	}, "{prefix},channel")
+	assert.Nil(t, err)
 	ch <- &msg
-	db.UnsubscribeChannelDB("{prefix},channel")
+	err = db.UnsubscribeChannelDB("{prefix},channel")
+	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, 0, count)
 	assert.Equal(t, "", receivedChannel)

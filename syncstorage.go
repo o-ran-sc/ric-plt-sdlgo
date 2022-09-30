@@ -93,16 +93,14 @@ func getHash(s string) uint32 {
 //events received from different channels, callbacks are called in series one by one.
 func (s *SyncStorage) SubscribeChannel(ns string, cb func(string, ...string), channels ...string) error {
 	nsPrefix := getNsPrefix(ns)
-	s.getDbBackend(ns).SubscribeChannelDB(cb, s.setNamespaceToChannels(nsPrefix, channels...)...)
-	return nil
+	return s.getDbBackend(ns).SubscribeChannelDB(cb, s.setNamespaceToChannels(nsPrefix, channels...)...)
 }
 
 //UnsubscribeChannel removes subscription from one or several channels under given
 //namespace.
 func (s *SyncStorage) UnsubscribeChannel(ns string, channels ...string) error {
 	nsPrefix := getNsPrefix(ns)
-	s.getDbBackend(ns).UnsubscribeChannelDB(s.setNamespaceToChannels(nsPrefix, channels...)...)
-	return nil
+	return s.getDbBackend(ns).UnsubscribeChannelDB(s.setNamespaceToChannels(nsPrefix, channels...)...)
 }
 
 //Close connection to backend database.
@@ -639,8 +637,8 @@ func getNsPrefix(ns string) string {
 }
 
 type iDatabase interface {
-	SubscribeChannelDB(cb func(string, ...string), channels ...string)
-	UnsubscribeChannelDB(channels ...string)
+	SubscribeChannelDB(cb func(string, ...string), channels ...string) error
+	UnsubscribeChannelDB(channels ...string) error
 	MSet(pairs ...interface{}) error
 	MSetMPub(channelsAndEvents []string, pairs ...interface{}) error
 	MGet(keys []string) ([]interface{}, error)

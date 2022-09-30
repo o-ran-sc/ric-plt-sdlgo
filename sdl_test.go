@@ -37,12 +37,14 @@ type mockDB struct {
 	mock.Mock
 }
 
-func (m *mockDB) SubscribeChannelDB(cb func(string, ...string), channels ...string) {
-	m.Called(cb, channels)
+func (m *mockDB) SubscribeChannelDB(cb func(string, ...string), channels ...string) error {
+	a := m.Called(cb, channels)
+	return a.Error(0)
 }
 
-func (m *mockDB) UnsubscribeChannelDB(channels ...string) {
-	m.Called(channels)
+func (m *mockDB) UnsubscribeChannelDB(channels ...string) error {
+	a := m.Called(channels)
+	return a.Error(0)
 }
 
 func (m *mockDB) MSet(pairs ...interface{}) error {
@@ -193,8 +195,23 @@ func TestSubscribeChannel(t *testing.T) {
 	expectedCB := func(channel string, events ...string) {}
 	expectedChannels := []string{"{namespace},channel1", "{namespace},channel2"}
 
-	m.On("SubscribeChannelDB", mock.AnythingOfType("func(string, ...string)"), expectedChannels).Return()
-	i.SubscribeChannel(expectedCB, "channel1", "channel2")
+	m.On("SubscribeChannelDB", mock.AnythingOfType("func(string, ...string)"), expectedChannels).Return(nil)
+	err := i.SubscribeChannel(expectedCB, "channel1", "channel2")
+	assert.Nil(t, err)
+	m.AssertExpectations(t)
+}
+
+func TestSubscribeChannelError(t *testing.T) {
+	mockedErr := errors.New("Some DB Backend Subscribe Error")
+	m, i := setup()
+
+	expectedCB := func(channel string, events ...string) {}
+	expectedChannels := []string{"{namespace},channel1", "{namespace},channel2"}
+
+	m.On("SubscribeChannelDB", mock.AnythingOfType("func(string, ...string)"), expectedChannels).Return(mockedErr)
+	err := i.SubscribeChannel(expectedCB, "channel1", "channel2")
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), mockedErr.Error())
 	m.AssertExpectations(t)
 }
 
@@ -203,10 +220,25 @@ func TestUnsubscribeChannel(t *testing.T) {
 
 	expectedChannels := []string{"{namespace},channel1", "{namespace},channel2"}
 
-	m.On("UnsubscribeChannelDB", expectedChannels).Return()
-	i.UnsubscribeChannel("channel1", "channel2")
+	m.On("UnsubscribeChannelDB", expectedChannels).Return(nil)
+	err := i.UnsubscribeChannel("channel1", "channel2")
+	assert.Nil(t, err)
 	m.AssertExpectations(t)
 }
+
+func TestUnsubscribeChannelError(t *testing.T) {
+	mockedErr := errors.New("Some DB Backend Unsubscribe Error")
+	m, i := setup()
+
+	expectedChannels := []string{"{namespace},channel1", "{namespace},channel2"}
+
+	m.On("UnsubscribeChannelDB", expectedChannels).Return(mockedErr)
+	err := i.UnsubscribeChannel("channel1", "channel2")
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), mockedErr.Error())
+	m.AssertExpectations(t)
+}
+
 func TestGetOneKey(t *testing.T) {
 	m, i := setup()
 
