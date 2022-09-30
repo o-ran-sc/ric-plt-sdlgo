@@ -30,6 +30,14 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.10.2] - 2022-09-30
+
+* Fix Coverity issues about missing function call return value validations
+
+[0.10.1] - 2022-08-12
+
+* Upgrade Golang version to 1.18 in ci Dockerfile
+
 [0.10.0] - 2022-03-14
 
 * Enable redis/sentinel port and sentinel master name configuration
