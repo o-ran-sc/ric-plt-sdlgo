@@ -34,21 +34,16 @@ repositories:
     - ric-plt/sdlgo
 committers:
     - <<: *oran_ric_plt_sdlgo_ptl
-    - name: 'Jussi Maki Aijala'
-      email: 'jussi.maki-aijala@nokia.com'
+    - name: 'Sumit Shekhar'
+      email: 'sumit.shekhar@nokia.com'
       company: 'nokia'
-      id: 'makiaija'
-      timezone: 'Europe/Helsinki'
-    - name: 'Timo Tietavainen'
-      email: 'timo.tietavainen@nokia.com'
+      id: 'sumitsh'
+      timezone: 'Asia/Kolkata'
+    - name: 'Rimjhim Verma'
+      email: 'rimjhim.verma@nokia.com'
       company: 'nokia'
-      id: 'tietavai'
-      timezone: 'Europe/Helsinki'
-    - name: 'Petri Ovaska'
-      email: 'petri.ovaska@nokia.com'
-      company: 'nokia'
-      id: 'povaska'
-      timezone: 'Europe/Helsinki'
+      id: 'rimverma'
+      timezone: 'Asia/Kolkata'
 tsc:
     # yamllint disable rule:line-length
     approval: 'missing'
