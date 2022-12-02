@@ -1,0 +1,10 @@
+Code-Review+2: Thoralf Czichy <thoralf.czichy@nokia.com>
+Code-Review+1: Timo Tietavainen <timo.tietavainen@nokia.com>
+Code-Review+1: Petri Ovaska <petri.ovaska@nokia.com>
+Verified+1: Thoralf Czichy <thoralf.czichy@nokia.com>
+Verified+1: ORAN Jobbuilder <releng+oran-jobbuilder@linuxfoundation.org>
+Submitted-by: Thoralf Czichy <thoralf.czichy@nokia.com>
+Submitted-at: Fri, 02 Dec 2022 13:29:45 +0000
+Reviewed-on: https://gerrit.o-ran-sc.org/r/c/ric-plt/sdlgo/+/9926
+Project: ric-plt/sdlgo
+Branch: refs/heads/master
