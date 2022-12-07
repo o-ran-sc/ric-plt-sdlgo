@@ -32,9 +32,11 @@ var (
 )
 
 func newDatabase() *Database {
+	backendOpt := sdlgoredis.Options{Persistence: false}
 	db := &Database{}
 	sdlgoredis.SetDbLogger(&buf)
-	for _, v := range sdlgoredis.Create() {
+	backendDBs, _ := sdlgoredis.Create(backendOpt)
+	for _, v := range backendDBs {
 		db.Instances = append(db.Instances, v)
 	}
 	return db

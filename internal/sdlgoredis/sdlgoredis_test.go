@@ -209,7 +209,7 @@ func setupSingleEnv(commandsExists bool, nodeCnt string) (*pubSubMock, *clientMo
 
 func setupEnv(commandsExists bool, host, port, msname, sntport, clsaddrlist, nodeCnt string) setupEv {
 	var ret setupEv
-
+	var opt sdlgoredis.Options
 	dummyCommandInfo := redis.CommandInfo{
 		Name: "dummy",
 	}
@@ -241,7 +241,7 @@ func setupEnv(commandsExists bool, host, port, msname, sntport, clsaddrlist, nod
 	pubSubMock, subscribeNotifications := setSubscribeNotifications()
 	smock := new(MockRedisSentinel)
 	ret.rSentinel = append(ret.rSentinel, smock)
-	clients := sdlgoredis.ReadConfigAndCreateDbClients(
+	clients, _ := sdlgoredis.ReadConfigAndCreateDbClients(
 		osmock,
 		func(addr, port, clusterName string, isHa bool) sdlgoredis.RedisClient {
 			clm := new(clientMock)
@@ -259,6 +259,7 @@ func setupEnv(commandsExists bool, host, port, msname, sntport, clsaddrlist, nod
 			}
 			return s
 		},
+		opt,
 	)
 	ret.db = clients
 	return ret

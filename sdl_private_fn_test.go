@@ -28,18 +28,27 @@ package sdlgo
 func NewSdlInstanceForTest(NameSpace string, instance iDatabase) *SdlInstance {
 	db := &Database{}
 	db.instances = append(db.instances, instance)
-
+	opt := syncStorageOptions{persistence: false}
 	return &SdlInstance{
 		nameSpace: NameSpace,
 		nsPrefix:  "{" + NameSpace + "},",
-		storage:   newSyncStorage(db),
+		storage:   newSyncStorage(opt, db),
 	}
 }
 
 // NewSyncStorageForTest is used only in unit tests to mock database.
 func NewSyncStorageForTest(dbMock iDatabase) *SyncStorage {
 	db := &Database{}
+	opt := syncStorageOptions{persistence: false}
+	db.instances = append(db.instances, dbMock)
+	return newSyncStorage(opt, db)
+}
+
+// NewSyncStoragePVForTest is used only in unit tests to mock database.
+func NewSyncStoragePVForTest(dbMock iDatabase) *SyncStorage {
+	opt := syncStorageOptions{persistence: true}
+	db := &Database{}
 	db.instances = append(db.instances, dbMock)
 
-	return newSyncStorage(db)
+	return newSyncStorage(opt, db)
 }
