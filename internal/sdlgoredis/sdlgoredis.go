@@ -124,6 +124,10 @@ func SetDbLogger(out io.Writer) {
 	dbLogger.log.SetOutput(out)
 }
 
+type Options struct {
+	Persistence bool
+}
+
 func checkResultAndError(result interface{}, err error) (bool, error) {
 	if err != nil {
 		if err == redis.Nil {
@@ -181,16 +185,28 @@ func CreateDB(client RedisClient, subscribe SubscribeFn, sentinelCreateCb RedisS
 	return &db
 }
 
-func Create() []*DB {
+func Create(opt Options) ([]*DB, error) {
 	osimpl := osImpl{}
-	return ReadConfigAndCreateDbClients(osimpl, newRedisClient, subscribeNotifications, newRedisSentinel)
+	return ReadConfigAndCreateDbClients(osimpl, newRedisClient, subscribeNotifications, newRedisSentinel, opt)
 }
 
-func readConfig(osI OS) Config {
+func readConfig(osI OS, opt Options) (Config, error) {
 	cfg := Config{
 		hostname: osI.Getenv("DBAAS_SERVICE_HOST", "localhost"),
 		ports:    strings.Split(osI.Getenv("DBAAS_SERVICE_PORT", "6379"), ","),
 		nodeCnt:  osI.Getenv("DBAAS_NODE_COUNT", "1"),
+	}
+	if sntPortStr := osI.Getenv("DBAAS_SERVICE_SENTINEL_PORT", ""); sntPortStr != "" {
+		cfg.sentinelPorts = strings.Split(sntPortStr, ",")
+	}
+
+	// It will connect with  persistence database
+	if os.Getenv("DBAAS_SERVICE_HOST_PV") != "" && opt.Persistence == true {
+		fmt.Println("DB With Persistency")
+		cfg.hostname = osI.Getenv("DBAAS_SERVICE_HOST_PV", "localhost")
+		cfg.sentinelPorts = []string{} // In case of persistency we are not using sentinels
+	} else if opt.Persistence == true && os.Getenv("DBAAS_SERVICE_HOST_PV") == "" {
+		return cfg, fmt.Errorf("DBAAS Service With Persistence Not Found")
 	}
 
 	if addrStr := osI.Getenv("DBAAS_CLUSTER_ADDR_LIST", ""); addrStr != "" {
@@ -198,14 +214,11 @@ func readConfig(osI OS) Config {
 	} else if cfg.hostname != "" {
 		cfg.clusterAddrs = append(cfg.clusterAddrs, cfg.hostname)
 	}
-	if sntPortStr := osI.Getenv("DBAAS_SERVICE_SENTINEL_PORT", ""); sntPortStr != "" {
-		cfg.sentinelPorts = strings.Split(sntPortStr, ",")
-	}
 	if nameStr := osI.Getenv("DBAAS_MASTER_NAME", ""); nameStr != "" {
 		cfg.masterNames = strings.Split(nameStr, ",")
 	}
 	completeConfig(&cfg)
-	return cfg
+	return cfg, nil
 }
 
 type OS interface {
@@ -245,9 +258,12 @@ func completeConfig(cfg *Config) {
 
 func ReadConfigAndCreateDbClients(osI OS, clientCreator RedisClientCreator,
 	subscribe SubscribeFn,
-	sentinelCreateCb RedisSentinelCreateCb) []*DB {
+	sentinelCreateCb RedisSentinelCreateCb, opt Options) ([]*DB, error) {
 	dbs := []*DB{}
-	cfg := readConfig(osI)
+	cfg, err := readConfig(osI, opt)
+	if err != nil {
+		return dbs, err
+	}
 	for i, addr := range cfg.clusterAddrs {
 		port := getListItem(cfg.ports, i)
 		sntPort := getListItem(cfg.sentinelPorts, i)
@@ -256,7 +272,7 @@ func ReadConfigAndCreateDbClients(osI OS, clientCreator RedisClientCreator,
 			clientCreator, subscribe, sentinelCreateCb)
 		dbs = append(dbs, db)
 	}
-	return dbs
+	return dbs, nil
 }
 
 func getListItem(list []string, index int) string {

@@ -52,22 +52,35 @@ type Database struct {
 //create a database before NewSyncStorage function is called, database will
 //be created automatically by NewSyncStorage function.
 func NewDatabase() *Database {
+	backendOpt := sdlgoredis.Options{Persistence: false}
 	db := &Database{}
-	for _, v := range sdlgoredis.Create() {
+	backendDBs, _ := sdlgoredis.Create(backendOpt)
+	for _, v := range backendDBs {
 		db.instances = append(db.instances, v)
 	}
 	return db
 }
+
+/**************************NewDatabasePv create  Database With Persistence***************/
+/*func NewDatabasePv(persistence string) (*Database, error) {
+	db := &Database{}
+	dbs, err := sdlgoredis.Create(persistence)
+	for _, v := range dbs {
+		db.instances = append(db.instances, v)
+	}
+	return db, err
+}*/
 
 //NewSdlInstance creates a new sdl instance using the given namespace.
 //The database used as a backend is given as a parameter
 //Deprecated: Will be removed in a future release, please use NewSyncStorage
 //function instead.
 func NewSdlInstance(NameSpace string, db *Database) *SdlInstance {
+	opt := syncStorageOptions{persistence: false}
 	return &SdlInstance{
 		nameSpace: NameSpace,
 		nsPrefix:  "{" + NameSpace + "},",
-		storage:   newSyncStorage(db),
+		storage:   newSyncStorage(opt, db),
 	}
 }
 

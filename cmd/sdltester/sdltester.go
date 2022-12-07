@@ -66,7 +66,6 @@ import (
 
 func main() {
 	sdl := sdlgo.NewSyncStorage()
-
 	if len(os.Args) > 1 {
 		switch command := os.Args[1]; command {
 		case "write":
@@ -98,7 +97,6 @@ func main() {
 		default:
 			printHelp()
 		}
-
 	} else {
 		printHelp()
 	}

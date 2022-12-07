@@ -46,18 +46,57 @@ type SyncStorage struct {
 	mutex sync.Mutex
 	tmp   []byte
 	db    *Database
+	opt   syncStorageOptions
+}
+
+type syncStorageOptions struct {
+	persistence bool
 }
 
 //NewSyncStorage creates a new sdl instance.
 //The database used as a backend is given as a parameter
 func NewSyncStorage() *SyncStorage {
-	return newSyncStorage(NewDatabase())
+	opt := syncStorageOptions{persistence: false}
+	db, _ := newDatabase(opt)
+	return newSyncStorage(opt, db)
 }
 
-func newSyncStorage(db *Database) *SyncStorage {
+/******************* NewSyncStoragePv creates a new sdl instance with persistence **********************/
+func NewSyncStoragePv() (*SyncStorage, error) {
+	opt := syncStorageOptions{persistence: true}
+	db, err := newDatabase(opt)
+	if err != nil {
+		return &SyncStorage{}, err
+	}
+	return newSyncStorage(opt, db), err
+}
+
+/*func newSyncStoragePv(db *Database, err error) (*SyncStorage, error) {
 	return &SyncStorage{
 		db: db,
+	}, err
+}*/
+
+func newSyncStorage(opt syncStorageOptions, db *Database) *SyncStorage {
+	return &SyncStorage{
+		db:  db,
+		opt: opt,
 	}
+}
+
+func newDatabase(opt syncStorageOptions) (*Database, error) {
+	backendOpt := sdlgoredis.Options{
+		Persistence: opt.persistence,
+	}
+	db := &Database{}
+	backendDBs, err := sdlgoredis.Create(backendOpt)
+	if err != nil {
+		return db, err
+	}
+	for _, v := range backendDBs {
+		db.instances = append(db.instances, v)
+	}
+	return db, err
 }
 
 //selectDbInstance Selects DB instance what provides DB services for the namespace
