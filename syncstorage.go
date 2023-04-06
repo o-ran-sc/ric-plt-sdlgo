@@ -26,6 +26,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+        "gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/cli"
 	"fmt"
 	"gerrit.o-ran-sc.org/r/ric-plt/sdlgo/internal/sdlgoredis"
 	"hash/crc32"
@@ -53,6 +54,31 @@ type SyncStorage struct {
 func NewSyncStorage() *SyncStorage {
 	return newSyncStorage(NewDatabase())
 }
+//Function to run the health check
+func runHealthCheck(dbCreateCb DbCreateCb) ([]sdlgoredis.DbState, error) {
+	var anyErr error
+	var states []sdlgoredis.DbState
+	for _, dbInst := range dbCreateCb().Instances {
+		state, err := dbInst.State()
+		if err != nil {
+			anyErr = err
+		}
+		states = append(states, *state)
+	}
+	return states, anyErr
+}
+
+A
+A
+B
+B
+B
+B
+B
+B
+B
+B
+B
 
 func newSyncStorage(db *Database) *SyncStorage {
 	return &SyncStorage{
