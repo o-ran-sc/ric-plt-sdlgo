@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "unresolved": true,
+      "key": {
+        "uuid": "085a2d05_dbccd42f",
+        "filename": "syncstorage.go",
+        "patchSetId": 1
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 1000475
+      },
+      "writtenOn": "2023-04-14T06:03:39Z",
+      "side": 1,
+      "message": "check it.",
+      "range": {
+        "startLine": 71,
+        "startChar": 0,
+        "endLine": 81,
+        "endChar": 1
+      },
+      "revId": "02ea8b6319496cf7086c997d56c3a020c6728e07",
+      "serverId": "84e4e190-e623-4c37-9eda-58b1937c1b53"
+    }
+  ]
+}
