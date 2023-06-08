@@ -30,6 +30,10 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.10.3] - 2023-06-08
+
+* go version update
+
 [0.10.2] - 2022-09-30
 
 * Fix Coverity issues about missing function call return value validations
