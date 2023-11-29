@@ -1,6 +1,6 @@
 module gerrit.o-ran-sc.org/r/ric-plt/sdlgo
 
-go 1.18
+go 1.20
 
 require (
 	github.com/go-redis/redis/v8 v8.11.4
