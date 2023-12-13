@@ -30,6 +30,10 @@ This document provides the release notes of the sdlgo.
 Version history
 ---------------
 
+[0.10.4] - 2023-12-13
+
+* go version update
+
 [0.10.3] - 2023-06-08
 
 * go version update
