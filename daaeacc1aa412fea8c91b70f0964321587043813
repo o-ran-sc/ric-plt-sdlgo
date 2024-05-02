@@ -1,0 +1,9 @@
+Code-Review+2: Timo Tietavainen <timo.tietavainen@nokia.com>
+Code-Review+1: Abdul Wahid W <abdulwahid.w@nokia.com>
+Verified+1: ORAN Required GHA <releng+oran.required.gha@linuxfoundation.org>
+Verified+1: ORAN Jobbuilder <releng+oran-jobbuilder@linuxfoundation.org>
+Submitted-by: Timo Tietavainen <timo.tietavainen@nokia.com>
+Submitted-at: Thu, 02 May 2024 08:01:13 +0000
+Reviewed-on: https://gerrit.o-ran-sc.org/r/c/ric-plt/sdlgo/+/12836
+Project: ric-plt/sdlgo
+Branch: refs/heads/master
